@@ -1560,6 +1560,69 @@ static DBusMessage *map_list_messages(DBusConnection *connection,
 	return get_message_listing(map, message, folder, apparam);
 }
 
+static GObexApparam *parse_conversation_filters(GObexApparam *apparam,
+							DBusMessageIter *iter)
+{
+	DBusMessageIter array;
+
+	if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_ARRAY) {
+		DBG("Not of type array");
+		return NULL;
+	}
+
+	dbus_message_iter_recurse(iter, &array);
+
+	while (dbus_message_iter_get_arg_type(&array) == DBUS_TYPE_DICT_ENTRY) {
+		const char *key;
+		DBusMessageIter value, entry;
+
+		dbus_message_iter_recurse(&array, &entry);
+		dbus_message_iter_get_basic(&entry, &key);
+
+		dbus_message_iter_next(&entry);
+		dbus_message_iter_recurse(&entry, &value);
+
+		/* TODO: Parse conversation filters */
+
+		dbus_message_iter_next(&array);
+	}
+	return apparam;
+}
+
+static DBusMessage *map_list_conversations(DBusConnection *connection,
+						DBusMessage *message,
+						void *user_data)
+{
+	struct map_data *map = user_data;
+	const char *folder;
+	GObexApparam *apparam;
+	DBusMessageIter args;
+
+	dbus_message_iter_init(message, &args);
+
+	if (dbus_message_iter_get_arg_type(&args) != DBUS_TYPE_STRING)
+		return g_dbus_create_error(message,
+			ERROR_INTERFACE ".InvalidArguments", NULL);
+
+	dbus_message_iter_get_basic(&args, &folder);
+
+	apparam = g_obex_apparam_set_uint16(NULL, MAP_AP_MAXLISTCOUNT,
+							DEFAULT_COUNT);
+	apparam = g_obex_apparam_set_uint16(apparam, MAP_AP_STARTOFFSET,
+							DEFAULT_OFFSET);
+
+	dbus_message_iter_next(&args);
+
+	if (parse_conversation_filters(apparam, &args) == NULL) {
+		g_obex_apparam_free(apparam);
+		return g_dbus_create_error(message,
+			ERROR_INTERFACE ".InvalidArguments", NULL);
+	}
+
+	/*TODO: Return conversation listing */
+	return NULL;
+}
+
 static char **get_filter_strs(uint64_t filter, int *size)
 {
 	char **list, **item;
@@ -1817,6 +1880,10 @@ static const GDBusMethodTable map_methods[] = {
 			GDBUS_ARGS({ "folder", "s" }, { "filter", "a{sv}" }),
 			GDBUS_ARGS({ "messages", "a{oa{sv}}" }),
 			map_list_messages) },
+	{ GDBUS_ASYNC_METHOD("ListConversations",
+			GDBUS_ARGS({ "folder", "s" }, { "filter", "a{sv}" }),
+			GDBUS_ARGS({ "conversations", "a{oa{sv}}" }),
+			map_list_conversations) },
 	{ GDBUS_METHOD("ListFilterFields",
 			NULL,
 			GDBUS_ARGS({ "fields", "as" }),
