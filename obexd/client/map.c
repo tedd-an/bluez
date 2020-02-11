@@ -1221,6 +1221,64 @@ clean:
 	pending_request_free(request);
 }
 
+static void conversation_listing_cb(struct obc_session *session,
+						struct obc_transfer *transfer,
+						GError *err, void *user_data)
+{
+	struct pending_request *request = user_data;
+	struct map_parser *parser;
+	GMarkupParseContext *ctxt;
+	DBusMessage *reply;
+	DBusMessageIter iter, array;
+	char *contents;
+	size_t size;
+	int perr;
+
+	if (err != NULL) {
+		reply = g_dbus_create_error(request->msg,
+						ERROR_INTERFACE ".Failed",
+						"%s", err->message);
+		goto done;
+	}
+
+	perr = obc_transfer_get_contents(transfer, &contents, &size);
+	if (perr < 0) {
+		reply = g_dbus_create_error(request->msg,
+						ERROR_INTERFACE ".Failed",
+						"Error reading contents: %s",
+						strerror(-perr));
+		goto done;
+	}
+
+	reply = dbus_message_new_method_return(request->msg);
+	if (reply == NULL) {
+		g_free(contents);
+		goto clean;
+	}
+
+	dbus_message_iter_init_append(reply, &iter);
+	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
+					DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
+					DBUS_TYPE_OBJECT_PATH_AS_STRING
+					DBUS_TYPE_ARRAY_AS_STRING
+					DBUS_DICT_ENTRY_BEGIN_CHAR_AS_STRING
+					DBUS_TYPE_STRING_AS_STRING
+					DBUS_TYPE_VARIANT_AS_STRING
+					DBUS_DICT_ENTRY_END_CHAR_AS_STRING
+					DBUS_DICT_ENTRY_END_CHAR_AS_STRING,
+					&array);
+
+	dbus_message_iter_close_container(&iter, &array);
+	g_free(contents);
+
+done:
+	if (convo_element_end)
+		if (g_dbus_send_message(conn, reply))
+			convo_element_end = FALSE;
+clean:
+	pending_request_free(request);
+}
+
 static char *get_absolute_folder(struct map_data *map, const char *subfolder)
 {
 	const char *root = obc_session_get_folder(map->session);
@@ -1256,6 +1314,43 @@ static DBusMessage *get_message_listing(struct map_data *map,
 
 	if (!obc_session_queue(map->session, transfer, message_listing_cb,
 							request, &err)) {
+		pending_request_free(request);
+		goto fail;
+	}
+
+	return NULL;
+
+fail:
+	reply = g_dbus_create_error(message, ERROR_INTERFACE ".Failed", "%s",
+								err->message);
+	g_error_free(err);
+	return reply;
+}
+
+static DBusMessage *get_conversations_listing(struct map_data *map,
+							DBusMessage *message,
+							const char *folder,
+							GObexApparam *apparam)
+{
+	struct pending_request *request;
+	struct obc_transfer *transfer;
+	GError *err = NULL;
+	DBusMessage *reply;
+
+	transfer = obc_transfer_get("x-bt/MAP-convo-listing", folder, NULL,
+									&err);
+
+	if (transfer == NULL) {
+		g_obex_apparam_free(apparam);
+		goto fail;
+	}
+	obc_transfer_set_apparam(transfer, apparam);
+
+	request = pending_request_new(map, message);
+	request->folder = get_absolute_folder(map, folder);
+
+	if (!obc_session_queue(map->session, transfer,
+				conversation_listing_cb, request, &err)) {
 		pending_request_free(request);
 		goto fail;
 	}
@@ -1681,8 +1776,7 @@ static DBusMessage *map_list_conversations(DBusConnection *connection,
 			ERROR_INTERFACE ".InvalidArguments", NULL);
 	}
 
-	/*TODO: Return conversation listing */
-	return NULL;
+	return get_conversations_listing(map, message, folder, apparam);
 }
 
 static char **get_filter_strs(uint64_t filter, int *size)
