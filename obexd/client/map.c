@@ -1369,6 +1369,21 @@ static GObexApparam *parse_filter_type(GObexApparam *apparam,
 									types);
 }
 
+static GObexApparam *parse_la_begin(GObexApparam *apparam,
+							DBusMessageIter *iter)
+{
+	const char *string;
+
+	if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_STRING)
+		return NULL;
+
+	dbus_message_iter_get_basic(iter, &string);
+
+	return g_obex_apparam_set_string(apparam,
+					MAP_AP_FILTERLASTACTIVITYBEGIN,
+					string);
+}
+
 static GObexApparam *parse_period_begin(GObexApparam *apparam,
 							DBusMessageIter *iter)
 {
@@ -1394,6 +1409,20 @@ static GObexApparam *parse_period_end(GObexApparam *apparam,
 	dbus_message_iter_get_basic(iter, &string);
 
 	return g_obex_apparam_set_string(apparam, MAP_AP_FILTERPERIODEND,
+								string);
+}
+
+static GObexApparam *parse_la_end(GObexApparam *apparam,
+						DBusMessageIter *iter)
+{
+	const char *string;
+
+	if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_STRING)
+		return NULL;
+
+	dbus_message_iter_get_basic(iter, &string);
+
+	return g_obex_apparam_set_string(apparam, MAP_AP_FILTERLASTACTIVITYEND,
 								string);
 }
 
@@ -1560,6 +1589,19 @@ static DBusMessage *map_list_messages(DBusConnection *connection,
 	return get_message_listing(map, message, folder, apparam);
 }
 
+static GObexApparam *parse_filter_conv_id(GObexApparam *apparam,
+							DBusMessageIter *iter)
+{
+	guint8 id;
+
+	if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_BYTE)
+		return NULL;
+
+	dbus_message_iter_get_basic(iter, &id);
+
+	return g_obex_apparam_set_uint8(apparam, MAP_AP_CONVERSATIONID, id);
+}
+
 static GObexApparam *parse_conversation_filters(GObexApparam *apparam,
 							DBusMessageIter *iter)
 {
@@ -1582,8 +1624,28 @@ static GObexApparam *parse_conversation_filters(GObexApparam *apparam,
 		dbus_message_iter_next(&entry);
 		dbus_message_iter_recurse(&entry, &value);
 
-		/* TODO: Parse conversation filters */
-
+		if (strcasecmp(key, "Offset") == 0) {
+			if (parse_offset(apparam, &value) == NULL)
+				return NULL;
+		} else if (strcasecmp(key, "MaxCount") == 0) {
+			if (parse_max_count(apparam, &value) == NULL)
+				return NULL;
+		} else if (strcasecmp(key, "LastActivityBegin") == 0) {
+			if (parse_la_begin(apparam, &value) == NULL)
+				return NULL;
+		} else if (strcasecmp(key, "FilterLastActivityEnd") == 0) {
+			if (parse_la_end(apparam, &value) == NULL)
+				return NULL;
+		} else if (strcasecmp(key, "Read") == 0) {
+			if (parse_filter_read(apparam, &value) == NULL)
+				return NULL;
+		} else if (strcasecmp(key, "Recipient") == 0) {
+			if (parse_filter_recipient(apparam, &value) == NULL)
+				return NULL;
+		} else if (strcasecmp(key, "ConversationId") == 0) {
+			if (parse_filter_conv_id(apparam, &value) == NULL)
+				return NULL;
+		}
 		dbus_message_iter_next(&array);
 	}
 	return apparam;
