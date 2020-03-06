@@ -373,14 +373,26 @@ static void agent_input_done(oob_type_t type, void *buf, uint16_t len,
 	struct l_dbus_message_builder *builder;
 	uint32_t val_u32;
 	uint8_t ascii[16];
+	uint8_t hex_key[MAX_HEXADECIMAL_OOB_LEN];
 
 	switch (type) {
 	case NONE:
 	case OUTPUT:
 	case HEXADECIMAL:
-	default:
-		break;
+		bt_shell_printf("Hex key length [%d]\n", len);
+		if (len > MAX_HEXADECIMAL_OOB_LEN) {
+			bt_shell_printf("Bad input length\n");
+			break;
+		}
 
+		memset(hex_key, 0, MAX_HEXADECIMAL_OOB_LEN);
+		memcpy(hex_key, buf, len);
+		reply = l_dbus_message_new_method_return(msg);
+		builder = l_dbus_message_builder_new(reply);
+		append_byte_array(builder, hex_key, len);
+		l_dbus_message_builder_finalize(builder);
+		l_dbus_message_builder_destroy(builder);
+		break;
 	case ASCII:
 		if (len > 8) {
 			bt_shell_printf("Bad input length\n");
@@ -405,6 +417,8 @@ static void agent_input_done(oob_type_t type, void *buf, uint16_t len,
 		val_u32 = l_get_be32(buf);
 		reply = l_dbus_message_new_method_return(msg);
 		l_dbus_message_set_arguments(reply, "u", val_u32);
+		break;
+	default:
 		break;
 	}
 
@@ -539,13 +553,22 @@ static struct l_dbus_message *prompt_static_call(struct l_dbus *dbus,
 		return l_dbus_message_new_error(msg, dbus_err_fail, NULL);
 	}
 
-	if (!strcmp(str, "in-alpha") && !strcmp(str, "out-alpha"))
-		return l_dbus_message_new_error(msg, dbus_err_support, NULL);
+	if ((strcmp(str, "in-alpha") != 0) && (strcmp(str, "out-alpha") != 0)
+			&& (strcmp(str, "static-oob") != 0))
+		return l_dbus_message_new_error(msg, dbus_err_args, NULL);
 
 	l_dbus_message_ref(msg);
-	agent_input_request(ASCII, 8, "Enter displayed Ascii code",
-							agent_input_done, msg);
 
+	if (strcmp(str, "static-oob") != 0) {
+		if (!agent_input_request(ASCII, 8, "Enter displayed Ascii code",
+					agent_input_done, msg))
+			return l_dbus_message_new_error(msg, dbus_err_fail, NULL);
+	} else {
+		/* Static OOB key len is fixed to 16 Octets */
+		if (!agent_input_request(HEXADECIMAL, 16, NULL,
+					agent_input_done, msg))
+			return l_dbus_message_new_error(msg, dbus_err_fail, NULL);
+	}
 	return NULL;
 }
 
