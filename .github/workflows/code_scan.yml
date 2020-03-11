@@ -1,0 +1,26 @@
+name: Code Scan
+
+on:
+  schedule:
+  - cron:  "10 7 * * FRI"
+
+jobs:
+  code-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout the source
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        path: src
+    - name: Code Scan
+      uses: tedd-an/action-code-scan@dev
+      with:
+        src_path: src
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        email_token: ${{ secrets.EMAIL_TOKEN }}
+    - uses: actions/upload-artifact@v2
+      with:
+        name: scan_report
+        path: scan_report.tar.gz
+
