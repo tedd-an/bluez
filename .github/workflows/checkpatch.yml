@@ -2,9 +2,8 @@ name: Check Patch
 
 on:
   pull_request:
-    branches:
-      - master
-  push:
+    branches-ignore: 
+      - workflow
 
 jobs:
   check_patch:
