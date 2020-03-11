@@ -12,6 +12,6 @@ jobs:
         fetch-depth: 0
     - name: check env
       run: |
-        echo "Environment"
+        echo "##### Environment"
         env
-        echo "End of Env"
+        echo "##### End of Env"
