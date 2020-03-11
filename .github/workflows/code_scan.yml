@@ -1,0 +1,39 @@
+name: Code Scan
+
+on:
+  schedule:
+  - cron:  "10 7 * * FRI"
+
+jobs:
+  coverity:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Coverity Scan
+      uses: tedd-an/action-code-scan@dev
+      with:
+        src_repo: "tedd-an/bluez"
+        scan_tool: "coverity"
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        email_token: ${{ secrets.EMAIL_TOKEN }}
+
+  clang-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Clang Code Scan
+      uses: tedd-an/action-code-scan@dev
+      with:
+        src_repo: "tedd-an/bluez"
+        scan_tool: "clang"
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        email_token: ${{ secrets.EMAIL_TOKEN }}
+    - uses: actions/upload-artifact@v2
+      with:
+        name: scan_report
+        path: scan_report.tar.gz
+
