@@ -1,7 +1,9 @@
 name: Check Patch
 
-on: pull_request
-
+on:
+  pull_request:
+    branches:
+      - master
 jobs:
   check_patch:
     runs-on: ubuntu-latest
