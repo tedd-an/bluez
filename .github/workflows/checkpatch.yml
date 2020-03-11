@@ -4,6 +4,9 @@ on:
   pull_request:
     branches-ignore: 
       - workflow
+  push:
+    branches-ignore: 
+      - workflow
 
 jobs:
   check_patch:
