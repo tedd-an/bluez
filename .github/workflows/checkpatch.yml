@@ -1,0 +1,16 @@
+name: Check Patch
+
+on: [pull_request]
+
+jobs:
+  checkpatch:
+    runs-on: ubuntu-latest
+    name: Check Patch for Pull Request
+    steps:
+    - name: Checkout the code
+      uses: actions/checkout@v2
+    - name: Check Env
+      run: |
+        echo "##### Environment #####"
+        env
+        echo "##### END #####"
