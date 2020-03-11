@@ -1,0 +1,15 @@
+name: Check Build
+
+on: [pull_request]
+
+jobs:
+  checkbuild:
+    runs-on: ubuntu-latest
+    name: Check Build for Pull Request
+    steps:
+    - name: Checkout the code
+      uses: actions/checkout@v1
+    - name: Checkbuild
+      uses: tedd-an/action-checkbuild@master
+      with:
+        github_token: ${{ secrets.ACTION_TOKEN }}
