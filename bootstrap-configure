@@ -20,7 +20,7 @@ fi
 		--enable-nfc \
 		--enable-sap \
 		--enable-health \
-		--enable-android \
+		--disable-android \
 		--enable-sixaxis \
 		--enable-midi \
 		--enable-mesh \
