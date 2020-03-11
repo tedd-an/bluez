@@ -1,0 +1,39 @@
+name: Scheduled Work
+
+on:
+  schedule:
+  - cron:  "*/30 * * * *"
+
+jobs:
+
+  manage_repo:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Manage Repo
+      uses: BluezTestBot/action-manage-repo@master
+      with:
+        src_repo: "bluez/bluez"
+        src_branch: "master"
+        dest_branch: "master"
+        workflow_branch: "workflow"
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  create_pr:
+    needs: manage_repo
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: master
+        fetch-depth: 0
+
+    - name: Patchwork to PR
+      uses: BluezTestBot/action-patchwork-to-pr@master
+      with:
+        pw_url: "https://patchwork.kernel.org/api/1.1"
+        pw_exclude_str: "Bluetooth:"
+        github_token: ${{ secrets.GITHUB_TOKEN }}     
