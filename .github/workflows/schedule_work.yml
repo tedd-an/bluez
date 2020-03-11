@@ -1,0 +1,38 @@
+name: Scheduled Work
+
+on:
+  schedule:
+  - cron:  "*/8 * * * *"
+
+jobs:
+
+  manage_repo:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Manage Repo
+      uses: tedd-an/action-manage-repo@master
+      with:
+        src_repo: "bluez/bluez"
+        src_branch: "master"
+        dest_branch: "master"
+        workflow_branch: "workflow"
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  create_pr:
+    needs: manage_repo
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - run: |
+        git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
+
+    - name: Patchwork to PR
+      uses: tedd-an/action-patchwork-to-pr@master
+      with:
+        base_branch: "workflow"
+        github_token: ${{ secrets.ACTION_TOKEN }}
+        email_token: ${{ secrets.EMAIL_TOKEN }}
