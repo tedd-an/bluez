@@ -1223,20 +1223,20 @@ static bool cfg_srv_pkt(uint16_t src, uint16_t dst, uint16_t app_idx,
 
 	case OP_NODE_RESET:
 		n = mesh_model_opcode_set(OP_NODE_RESET_STATUS, msg);
-		/*
-		 * Delay node removal to give it a chance to send back the
-		 * status
-		 */
+
+		/* After reset, node is not processing any incoming messages */
+		mesh_net_detach(net);
+
+		/* Delay node removal to give it a chance to send the status */
 		l_timeout_create(1, node_reset, node, NULL);
 		break;
 	}
 
-	if (n) {
-		/* print_packet("App Tx", long_msg ? long_msg : msg, n); */
+	if (n)
 		mesh_model_send(node, dst, src,
 				APP_IDX_DEV_LOCAL, net_idx, DEFAULT_TTL,
 				long_msg ? long_msg : msg, n);
-	}
+
 	l_free(long_msg);
 
 	return true;
