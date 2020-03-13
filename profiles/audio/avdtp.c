@@ -1421,6 +1421,39 @@ static void setconf_cb(struct avdtp *session, struct avdtp_stream *stream,
 	avdtp_sep_set_state(session, sep, AVDTP_STATE_CONFIGURED);
 }
 
+static uint8_t verify_service_capability_length(
+					struct avdtp_service_capability *cap)
+{
+	switch (cap->category) {
+	case AVDTP_MEDIA_TRANSPORT:
+		if (cap->length != 0)
+			return AVDTP_BAD_MEDIA_TRANSPORT_FORMAT;
+		break;
+	case AVDTP_REPORTING:
+		if (cap->length != 0)
+			return AVDTP_BAD_PAYLOAD_FORMAT;
+		break;
+	case AVDTP_RECOVERY:
+		if (cap->length != 3)
+			return AVDTP_BAD_RECOVERY_FORMAT;
+		break;
+	case AVDTP_CONTENT_PROTECTION:
+		if (cap->length < 2)
+			return AVDTP_BAD_CP_FORMAT;
+		break;
+	case AVDTP_HEADER_COMPRESSION:
+		if (cap->length != 1)
+			return AVDTP_BAD_ROHC_FORMAT;
+		break;
+	case AVDTP_MULTIPLEXING:
+		if (cap->length < 2 || cap->length > 7)
+			return AVDTP_BAD_MULTIPLEXING_FORMAT;
+		break;
+	}
+
+	return 0;
+}
+
 static gboolean avdtp_setconf_cmd(struct avdtp *session, uint8_t transaction,
 				struct setconf_req *req, unsigned int size)
 {
@@ -1487,12 +1520,12 @@ static gboolean avdtp_setconf_cmd(struct avdtp *session, uint8_t transaction,
 					&stream->codec,
 					&stream->delay_reporting);
 
-	/* Verify that the Media Transport capability's length = 0. Reject otherwise */
 	for (l = stream->caps; l != NULL; l = g_slist_next(l)) {
 		struct avdtp_service_capability *cap = l->data;
 
-		if (cap->category == AVDTP_MEDIA_TRANSPORT && cap->length != 0) {
-			err = AVDTP_BAD_MEDIA_TRANSPORT_FORMAT;
+		err = verify_service_capability_length(cap);
+		if (err) {
+			category = cap->category;
 			goto failed_stream;
 		}
 	}
