@@ -3189,6 +3189,7 @@ int main(int argc, char *argv[])
 	if (!l_main_init())
 		return EXIT_FAILURE;
 
+	/* This is the test string just to test how it works with long long long string */
 
 	adapters = l_queue_new();
 
