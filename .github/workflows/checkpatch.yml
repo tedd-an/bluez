@@ -10,6 +10,6 @@ jobs:
     - name: Checkout the code
       uses: actions/checkout@v1
     - name: Checkpatch
-      uses: tedd-an/action-checkpatch
+      uses: tedd-an/action-checkpatch@master
       with:
         github_token: ${{ secrets.ACTION_TOKEN }}
