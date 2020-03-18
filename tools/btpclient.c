@@ -3189,6 +3189,7 @@ int main(int argc, char *argv[])
 	if (!l_main_init())
 		return EXIT_FAILURE;
 
+	/* test long long long long long long long long long long long long long long long test */
 
 	adapters = l_queue_new();
 
