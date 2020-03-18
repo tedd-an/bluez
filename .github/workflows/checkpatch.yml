@@ -8,9 +8,8 @@ jobs:
     name: Check Patch for Pull Request
     steps:
     - name: Checkout the code
-      uses: actions/checkout@v2
-    - name: Check Env
-      run: |
-        echo "##### Environment #####"
-        env
-        echo "##### END #####"
+      uses: actions/checkout@v1
+    - name: Checkpatch
+      uses: tedd-an/action-checkpatch
+      with:
+        github_token: ${{ secrets.ACTION_TOKEN }}
