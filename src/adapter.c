@@ -4654,7 +4654,7 @@ void adapter_connect_list_remove(struct btd_adapter *adapter,
 	trigger_passive_scanning(adapter);
 }
 
-static void add_whitelist_complete(uint8_t status, uint16_t length,
+static void add_device_complete(uint8_t status, uint16_t length,
 					const void *param, void *user_data)
 {
 	const struct mgmt_rp_add_device *rp = param;
@@ -4670,8 +4670,8 @@ static void add_whitelist_complete(uint8_t status, uint16_t length,
 
 	ba2str(&rp->addr.bdaddr, addr);
 
-	dev = btd_adapter_find_device(adapter, &rp->addr.bdaddr,
-							rp->addr.type);
+	dev = btd_adapter_find_device(adapter, &rp->addr.bdaddr, rp->addr.type);
+
 	if (!dev) {
 		btd_error(adapter->dev_id,
 			"Add Device complete for unknown device %s", addr);
@@ -4680,29 +4680,50 @@ static void add_whitelist_complete(uint8_t status, uint16_t length,
 
 	if (status != MGMT_STATUS_SUCCESS) {
 		btd_error(adapter->dev_id,
-					"Failed to add device %s: %s (0x%02x)",
-					addr, mgmt_errstr(status), status);
+			"Failed to add device %s (%u): %s (0x%02x)",
+			addr, rp->addr.type, mgmt_errstr(status), status);
+
+		if (rp->addr.type != BDADDR_BREDR)
+			adapter->connect_list =
+				g_slist_remove(adapter->connect_list, dev);
 		return;
 	}
 
-	DBG("%s added to kernel whitelist", addr);
+	/* Update flag results if any */
+	device_add_complete(dev);
+
+	DBG("%s (%u) added to kernel connect list", addr, rp->addr.type);
+}
+
+int adapter_add_device(struct btd_adapter *adapter, struct btd_device *device)
+{
+	struct mgmt_cp_add_device cp;
+	const bdaddr_t *bdaddr;
+	uint8_t bdaddr_type;
+
+	if (!kernel_conn_control)
+		return 0;
+
+	bdaddr = device_get_address(device);
+	bdaddr_type = btd_device_get_bdaddr_type(device);
+
+	memset(&cp, 0, sizeof(cp));
+	bacpy(&cp.addr.bdaddr, bdaddr);
+	cp.addr.type = bdaddr_type;
+
+	/* BREDR will always have action = 0x1 (allow incoming connection) */
+	cp.action = bdaddr_type == BDADDR_BREDR ? 0x1 : 0x2;
+	cp.flags_mask = device_get_flags_mask(device);
+	cp.flags_value = device_get_flags_value(device);
+
+	return mgmt_send(adapter->mgmt, MGMT_OP_ADD_DEVICE,
+			adapter->dev_id, sizeof(cp), &cp, add_device_complete,
+			adapter, NULL);
 }
 
 void adapter_whitelist_add(struct btd_adapter *adapter, struct btd_device *dev)
 {
-	struct mgmt_cp_add_device cp;
-
-	if (!kernel_conn_control)
-		return;
-
-	memset(&cp, 0, sizeof(cp));
-	bacpy(&cp.addr.bdaddr, device_get_address(dev));
-	cp.addr.type = BDADDR_BREDR;
-	cp.action = 0x01;
-
-	mgmt_send(adapter->mgmt, MGMT_OP_ADD_DEVICE,
-				adapter->dev_id, sizeof(cp), &cp,
-				add_whitelist_complete, adapter, NULL);
+	adapter_add_device(adapter, dev);
 }
 
 static void remove_whitelist_complete(uint8_t status, uint16_t length,
@@ -4743,76 +4764,23 @@ void adapter_whitelist_remove(struct btd_adapter *adapter, struct btd_device *de
 				remove_whitelist_complete, adapter, NULL);
 }
 
-static void add_device_complete(uint8_t status, uint16_t length,
-					const void *param, void *user_data)
-{
-	const struct mgmt_rp_add_device *rp = param;
-	struct btd_adapter *adapter = user_data;
-	struct btd_device *dev;
-	char addr[18];
-
-	if (length < sizeof(*rp)) {
-		btd_error(adapter->dev_id,
-				"Too small Add Device complete event");
-		return;
-	}
-
-	ba2str(&rp->addr.bdaddr, addr);
-
-	dev = btd_adapter_find_device(adapter, &rp->addr.bdaddr,
-							rp->addr.type);
-	if (!dev) {
-		btd_error(adapter->dev_id,
-			"Add Device complete for unknown device %s", addr);
-		return;
-	}
-
-	if (status != MGMT_STATUS_SUCCESS) {
-		btd_error(adapter->dev_id,
-			"Failed to add device %s (%u): %s (0x%02x)",
-			addr, rp->addr.type, mgmt_errstr(status), status);
-		adapter->connect_list = g_slist_remove(adapter->connect_list,
-									dev);
-		return;
-	}
-
-	DBG("%s (%u) added to kernel connect list", addr, rp->addr.type);
-}
-
 void adapter_auto_connect_add(struct btd_adapter *adapter,
-					struct btd_device *device)
+			      struct btd_device *device)
 {
-	struct mgmt_cp_add_device cp;
-	const bdaddr_t *bdaddr;
-	uint8_t bdaddr_type;
-	unsigned int id;
-
-	if (!kernel_conn_control)
-		return;
+	uint8_t bdaddr_type = btd_device_get_bdaddr_type(device);
 
 	if (g_slist_find(adapter->connect_list, device)) {
 		DBG("ignoring already added device %s",
-						device_get_path(device));
+		    device_get_path(device));
 		return;
 	}
-
-	bdaddr = device_get_address(device);
-	bdaddr_type = btd_device_get_bdaddr_type(device);
 
 	if (bdaddr_type == BDADDR_BREDR) {
-		DBG("auto-connection feature is not avaiable for BR/EDR");
+		DBG("auto-connection feature is not available for BR/EDR");
 		return;
 	}
 
-	memset(&cp, 0, sizeof(cp));
-	bacpy(&cp.addr.bdaddr, bdaddr);
-	cp.addr.type = bdaddr_type;
-	cp.action = 0x02;
-
-	id = mgmt_send(adapter->mgmt, MGMT_OP_ADD_DEVICE,
-			adapter->dev_id, sizeof(cp), &cp, add_device_complete,
-			adapter, NULL);
-	if (id == 0)
+	if (adapter_add_device(adapter, device) == 0)
 		return;
 
 	adapter->connect_list = g_slist_append(adapter->connect_list, device);
