@@ -1997,6 +1997,8 @@ Add Device Command
 	Command Parameters:	Address (6 Octets)
 				Address_Type (1 Octet)
 				Action (1 Octet)
+				Flags Mask (1 Octet)
+				Flags Value (1 Octet)
 	Return Parameters:	Address (6 Octets)
 				Address_Type (1 Octet)
 
@@ -2013,6 +2015,9 @@ Add Device Command
 		0	Background scan for device
 		1	Allow incoming connection
 		2	Auto-connect remote device
+
+	The following flags are supported:
+		0x1	Wakeable
 
 	With the Action 0, when the device is found, a new Device Found
 	event will be sent indicating this device is available. This
@@ -2035,6 +2040,13 @@ Add Device Command
 	Devices added with Action 1 are allowed to connect even if the
 	connectable setting is off. This acts as list of known trusted
 	devices.
+
+	To set flags on the device, first set the bit in the mask for the
+	flag to set and then set or clear the bit in the value to indicate
+	whether the flag should be set.
+
+	The Wakeable flag controls whether this device can wake the system
+	from suspend.
 
 	This command can be used when the controller is not powered and
 	all settings will be programmed once powered.
