@@ -184,11 +184,15 @@ struct btd_device {
 	uint8_t		conn_bdaddr_type;
 	bdaddr_t	bdaddr;
 	uint8_t		bdaddr_type;
+	uint8_t		mgmt_flags_mask;   /* Flags to update on add_device */
+	uint8_t		mgmt_flags_value; /* Flag values for add_device */
 	char		*path;
 	bool		bredr;
 	bool		le;
 	bool		pending_paired;		/* "Paired" waiting for SDP */
 	bool		svc_refreshed;
+	bool		wake_support;		/* Profile supports wake */
+	bool		wake_allowed;		/* Can wake from suspend */
 	GSList		*svc_callbacks;
 	GSList		*eir_uuids;
 	struct bt_ad	*ad;
@@ -414,6 +418,9 @@ static gboolean store_device_info_cb(gpointer user_data)
 
 	g_key_file_set_boolean(key_file, "General", "Blocked",
 							device->blocked);
+
+	g_key_file_set_boolean(key_file, "General", "WakeAllowed",
+							device->wake_allowed);
 
 	if (device->uuids) {
 		GSList *l;
@@ -1316,6 +1323,79 @@ dev_property_advertising_data_exist(const GDBusPropertyTable *property,
 	struct btd_device *device = data;
 
 	return bt_ad_has_data(device->ad, NULL);
+}
+
+bool device_get_wake_support(struct btd_device *device)
+{
+	return device->wake_support;
+}
+
+void device_set_wake_support(struct btd_device *device, bool wake_support)
+{
+	device->wake_support = wake_support;
+}
+
+bool device_get_wake_allowed(struct btd_device *device)
+{
+	return device->wake_allowed;
+}
+
+void device_set_wake_allowed(struct btd_device *device, bool wake_allowed)
+{
+	device->mgmt_flags_mask |= DEVICE_FLAG_WAKEABLE;
+	if (wake_allowed)
+		device->mgmt_flags_value |= DEVICE_FLAG_WAKEABLE;
+	else
+		device->mgmt_flags_value &= ~DEVICE_FLAG_WAKEABLE;
+
+	adapter_add_device(device->adapter, device);
+}
+
+static gboolean
+dev_property_get_wake_allowed(const GDBusPropertyTable *property,
+			     DBusMessageIter *iter, void *data)
+{
+	struct btd_device *device = data;
+	dbus_bool_t wake_allowed =
+			device_get_wake_allowed(device) ? TRUE : FALSE;
+
+	dbus_message_iter_append_basic(iter, DBUS_TYPE_BOOLEAN, &wake_allowed);
+
+	return TRUE;
+}
+
+static void dev_property_set_wake_allowed(const GDBusPropertyTable *property,
+					 DBusMessageIter *value,
+					 GDBusPendingPropertySet id, void *data)
+{
+	struct btd_device *device = data;
+	dbus_bool_t b;
+
+	if (dbus_message_iter_get_arg_type(value) != DBUS_TYPE_BOOLEAN) {
+		g_dbus_pending_property_error(id,
+					ERROR_INTERFACE ".InvalidArguments",
+					"Invalid arguments in method call");
+		return;
+	}
+
+	if (device->temporary) {
+		g_dbus_pending_property_error(id,
+					ERROR_INTERFACE ".Unsupported",
+					"Cannot set property while temporary");
+		return;
+	}
+
+	dbus_message_iter_get_basic(value, &b);
+	device_set_wake_allowed(device, b);
+	g_dbus_pending_property_success(id);
+}
+
+static gboolean dev_property_wake_allowed_exist(
+		const GDBusPropertyTable *property, void *data)
+{
+	struct btd_device *device = data;
+
+	return device_get_wake_support(device) ? TRUE : FALSE;
 }
 
 static gboolean disconnect_all(gpointer user_data)
@@ -2779,6 +2859,9 @@ static const GDBusPropertyTable device_properties[] = {
 	{ "AdvertisingData", "a{yv}", dev_property_get_advertising_data,
 				NULL, dev_property_advertising_data_exist,
 				G_DBUS_PROPERTY_FLAG_EXPERIMENTAL },
+	{ "WakeAllowed", "b", dev_property_get_wake_allowed,
+				dev_property_set_wake_allowed,
+				dev_property_wake_allowed_exist },
 	{ }
 };
 
@@ -3030,6 +3113,7 @@ static void load_info(struct btd_device *device, const char *local,
 	char *str;
 	gboolean store_needed = FALSE;
 	gboolean blocked;
+	gboolean wake_allowed;
 	char **uuids;
 	int source, vendor, product, version;
 	char **techno, **t;
@@ -3139,6 +3223,14 @@ next:
 							"Version", NULL);
 
 		btd_device_set_pnpid(device, source, vendor, product, version);
+	}
+
+	/* Mark wake allowed */
+	wake_allowed = g_key_file_get_boolean(key_file, "General",
+					      "WakeAllowed", NULL);
+	if (wake_allowed) {
+		device->mgmt_flags_mask |= DEVICE_FLAG_WAKEABLE;
+		device->mgmt_flags_value |= DEVICE_FLAG_WAKEABLE;
 	}
 
 	if (store_needed)
@@ -3957,6 +4049,39 @@ char *btd_device_get_storage_path(struct btd_device *device,
 	return g_strdup_printf(STORAGEDIR "/%s/%s/%s",
 				btd_adapter_get_storage_dir(device->adapter),
 				dstaddr, filename);
+}
+
+void device_add_complete(struct btd_device *device)
+{
+	bool flag = false;
+
+	/* No flags updated */
+	if (!device->mgmt_flags_mask)
+		return;
+
+	if (device->mgmt_flags_mask & DEVICE_FLAG_WAKEABLE)
+	{
+		flag = device->mgmt_flags_value & DEVICE_FLAG_WAKEABLE;
+		device->wake_allowed = flag;
+
+		store_device_info(device);
+		g_dbus_emit_property_changed(dbus_conn, device->path,
+					     DEVICE_INTERFACE, "WakeAllowed");
+	}
+
+	/* Clear mask and values for next completion */
+	device->mgmt_flags_mask = 0;
+	device->mgmt_flags_value = 0;
+}
+
+uint8_t device_get_flags_mask(struct btd_device *device)
+{
+	return device->mgmt_flags_mask;
+}
+
+uint8_t device_get_flags_value(struct btd_device *device)
+{
+	return device->mgmt_flags_value;
 }
 
 void btd_device_device_set_name(struct btd_device *device, const char *name)

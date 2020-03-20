@@ -395,10 +395,13 @@ struct mgmt_rp_get_clock_info {
 struct mgmt_cp_add_device {
 	struct mgmt_addr_info addr;
 	uint8_t action;
+	uint8_t flags_mask;
+	uint8_t flags_value;
 } __packed;
 struct mgmt_rp_add_device {
 	struct mgmt_addr_info addr;
 } __packed;
+#define DEVICE_FLAG_WAKEABLE		0x1
 
 #define MGMT_OP_REMOVE_DEVICE		0x0034
 struct mgmt_cp_remove_device {
