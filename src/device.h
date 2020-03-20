@@ -33,6 +33,10 @@ struct btd_device *device_create_from_storage(struct btd_adapter *adapter,
 char *btd_device_get_storage_path(struct btd_device *device,
 				const char *filename);
 
+void device_add_complete(struct btd_device *device);
+uint8_t device_get_flags_mask(struct btd_device *device);
+uint8_t device_get_flags_value(struct btd_device *device);
+
 void btd_device_device_set_name(struct btd_device *device, const char *name);
 void device_store_cached_name(struct btd_device *dev, const char *name);
 void device_get_name(struct btd_device *device, char *name, size_t len);
@@ -139,6 +143,10 @@ void device_store_svc_chng_ccc(struct btd_device *device, uint8_t bdaddr_type,
 								uint16_t value);
 void device_load_svc_chng_ccc(struct btd_device *device, uint16_t *ccc_le,
 							uint16_t *ccc_bredr);
+bool device_get_wake_support(struct btd_device *device);
+void device_set_wake_support(struct btd_device *device, bool wake_support);
+bool device_get_wake_allowed(struct btd_device *device);
+void device_set_wake_allowed(struct btd_device *device, bool wake_allowed);
 
 typedef void (*disconnect_watch) (struct btd_device *device, gboolean removal,
 					void *user_data);
