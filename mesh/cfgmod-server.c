@@ -836,7 +836,11 @@ static bool cfg_srv_pkt(uint16_t src, uint16_t dst, uint16_t app_idx,
 		n = mesh_model_opcode_set(OP_CONFIG_RELAY_STATUS, msg);
 
 		msg[n++] = node_relay_mode_get(node, &count, &interval);
-		msg[n++] = (count - 1) + ((interval/10 - 1) << 3);
+
+		if (count > 0 && interval >= 10)
+			msg[n++] = (count - 1) + ((interval/10 - 1) << 3);
+		else
+			msg[n++] = 0;
 
 		l_debug("Get/Set Relay Config (%d)", msg[n-1]);
 		break;
