@@ -93,6 +93,7 @@ static void prov_disc_cb(struct l_dbus *bus, void *user_data)
 	initiator_cancel(add_pending);
 	add_pending->disc_watch = 0;
 
+	mesh_agent_remove(add_pending->agent);
 	free_pending_add_call();
 }
 

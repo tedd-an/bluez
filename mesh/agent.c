@@ -205,6 +205,7 @@ static void agent_free(void *agent_data)
 
 	l_free(agent->path);
 	l_free(agent->owner);
+	l_free(agent);
 }
 
 void mesh_agent_remove(struct mesh_agent *agent)
@@ -212,8 +213,8 @@ void mesh_agent_remove(struct mesh_agent *agent)
 	if (!agent || !l_queue_find(agents, simple_match, agent))
 		return;
 
-	agent_free(agent);
 	l_queue_remove(agents, agent);
+	agent_free(agent);
 }
 
 void mesh_agent_cleanup(void)

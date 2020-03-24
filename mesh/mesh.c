@@ -340,6 +340,7 @@ void mesh_cleanup(void)
 	l_queue_destroy(pending_queue, pending_request_exit);
 	node_cleanup_all();
 	mesh_model_cleanup();
+	mesh_agent_cleanup();
 
 	l_dbus_object_remove_interface(dbus_get_bus(), BLUEZ_MESH_PATH,
 							MESH_NETWORK_INTERFACE);
@@ -484,6 +485,7 @@ static void node_init_cb(struct mesh_node *node, struct mesh_agent *agent)
 	}
 
 	join_pending->node = node;
+	join_pending->agent = agent;
 	num_ele = node_get_num_elements(node);
 
 	if (!acceptor_start(num_ele, join_pending->uuid, mesh.algorithms,
