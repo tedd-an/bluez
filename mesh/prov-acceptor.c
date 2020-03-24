@@ -420,6 +420,21 @@ static void acp_prov_rx(void *user_data, const uint8_t *data, uint16_t len)
 			goto failure;
 		}
 
+		if (prov->conf_inputs.start.auth_method < 2 &&
+				(prov->conf_inputs.start.auth_action ||
+					prov->conf_inputs.start.auth_size)) {
+			l_debug("inconsistent auth method and action");
+			fail.reason = PROV_ERR_INVALID_FORMAT;
+			goto failure;
+		}
+
+		if (prov->conf_inputs.caps.pub_type !=
+				prov->conf_inputs.start.pub_key) {
+			l_debug("inconsistent pubkey type");
+			fail.reason = PROV_ERR_INVALID_FORMAT;
+			goto failure;
+		}
+
 		if (prov->conf_inputs.start.pub_key) {
 			if (prov->conf_inputs.caps.pub_type) {
 				/* Prompt Agent for Private Key of OOB */
