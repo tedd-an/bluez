@@ -2621,6 +2621,14 @@ static int key_refresh_phase_two(struct mesh_net *net, uint16_t idx)
 	 */
 	subnet->kr_phase = KEY_REFRESH_PHASE_TWO;
 	refresh_beacon(subnet, net);
+
+	/* send snb with updated net key id in phase 2 */
+	if (net->beacon_enable) {
+		/* Switch beaconing key */
+		net_key_beacon_disable(subnet->net_key_cur);
+		net_key_beacon_enable(subnet->net_key_upd);
+	}
+
 	queue_friend_update(net);
 
 	l_queue_foreach(net->friends, frnd_kr_phase2, net);
@@ -2647,6 +2655,13 @@ static int key_refresh_finish(struct mesh_net *net, uint16_t idx)
 		return MESH_STATUS_SUCCESS;
 
 	l_info("Key refresh phase 3: use new keys only, discard old ones");
+
+	/* required when skipping phase 2 */
+	if (net->beacon_enable) {
+		/* Switch beaconing key */
+		net_key_beacon_disable(subnet->net_key_cur);
+		net_key_beacon_enable(subnet->net_key_upd);
+	}
 
 	/* Switch to using new keys, discard old ones */
 	net_key_unref(subnet->net_key_cur);
@@ -2778,7 +2793,8 @@ static void process_beacon(void *net_ptr, void *user_data)
 				ivi != net->iv_index || ivu != net->iv_update)
 		update_iv_ivu_state(net, ivi, ivu);
 
-	if (kr != local_kr)
+	if (kr != local_kr || (subnet->kr_phase == KEY_REFRESH_PHASE_ONE &&
+				subnet->net_key_upd == beacon_data->key_id))
 		update_kr_state(subnet, kr, beacon_data->key_id);
 
 	net_key_beacon_refresh(beacon_data->key_id, net->iv_index,
