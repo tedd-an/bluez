@@ -120,7 +120,14 @@ static void acceptor_free(void)
 
 static void acp_prov_close(void *user_data, uint8_t reason)
 {
-	/* TODO: Handle Close */
+	struct mesh_prov_acceptor *prov = user_data;
+
+	if (reason != PROV_ERR_SUCCESS && prov->cmplt)
+		prov->cmplt(prov->caller_data, reason, NULL);
+	else if (reason == PROV_ERR_SUCCESS && prov->cmplt)
+		prov->cmplt(prov->caller_data, PROV_ERR_UNEXPECTED_ERR, NULL);
+
+	prov->cmplt = NULL;
 	acceptor_free();
 }
 
