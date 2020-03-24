@@ -3458,6 +3458,9 @@ uint8_t mesh_net_key_refresh_phase_set(struct mesh_net *net, uint16_t idx,
 	if (transition == subnet->kr_phase)
 		return MESH_STATUS_SUCCESS;
 
+	if (transition == 3 && subnet->kr_phase == KEY_REFRESH_PHASE_NONE)
+		return MESH_STATUS_SUCCESS;
+
 	if ((transition != 2 && transition != 3) ||
 						transition < subnet->kr_phase)
 		return MESH_STATUS_CANNOT_SET;
