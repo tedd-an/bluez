@@ -886,6 +886,8 @@ static bool handle_signed(struct bt_att *att, uint8_t opcode, uint8_t *pdu,
 {
 	uint8_t *signature;
 	uint32_t sign_cnt;
+	uint8_t *copy_pdu = NULL;
+	uint8_t *generated_signature;
 	struct sign_info *sign;
 
 	/* Check if there is enough data for a signature */
@@ -903,15 +905,29 @@ static bool handle_signed(struct bt_att *att, uint8_t opcode, uint8_t *pdu,
 	if (!sign->counter(&sign_cnt, sign->user_data))
 		goto fail;
 
-	/* Generate signature and verify it */
-	if (!bt_crypto_sign_att(att->crypto, sign->key, pdu,
-				pdu_len - BT_ATT_SIGNATURE_LEN, sign_cnt,
-				signature))
+	/* Generate signature */
+	copy_pdu = malloc(pdu_len + 1);
+	if (!copy_pdu)
 		goto fail;
 
+	copy_pdu[0] = opcode;
+	memcpy(copy_pdu + 1, pdu, pdu_len - BT_ATT_SIGNATURE_LEN);
+	generated_signature = copy_pdu + pdu_len - BT_ATT_SIGNATURE_LEN + 1;
+
+	if (!bt_crypto_sign_att(att->crypto, sign->key, copy_pdu,
+				pdu_len - BT_ATT_SIGNATURE_LEN + 1, sign_cnt,
+				generated_signature))
+		goto fail;
+
+	/* Verify received signature */
+	if (memcmp(generated_signature, signature, BT_ATT_SIGNATURE_LEN))
+		goto fail;
+
+	free(copy_pdu);
 	return true;
 
 fail:
+	free(copy_pdu);
 	util_debug(att->debug_callback, att->debug_data,
 			"ATT failed to verify signature: 0x%02x", opcode);
 
@@ -925,7 +941,7 @@ static void handle_notify(struct bt_att_chan *chan, uint8_t opcode,
 	const struct queue_entry *entry;
 	bool found;
 
-	if ((opcode & ATT_OP_SIGNED_MASK) && !att->crypto) {
+	if ((opcode & ATT_OP_SIGNED_MASK) && att->crypto) {
 		if (!handle_signed(att, opcode, pdu, pdu_len))
 			return;
 		pdu_len -= BT_ATT_SIGNATURE_LEN;
