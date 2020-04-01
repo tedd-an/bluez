@@ -546,6 +546,7 @@ static bool msg_send(struct mesh_node *node, bool credential, uint16_t src,
 	uint8_t dev_key[16];
 	uint32_t iv_index, seq_num;
 	const uint8_t *key;
+	struct keyring_net_key net_key;
 	uint8_t *out;
 	uint8_t key_aid = APP_AID_DEV;
 	bool szmic = false;
@@ -578,8 +579,16 @@ static bool msg_send(struct mesh_node *node, bool credential, uint16_t src,
 		}
 
 		net_idx = appkey_net_idx(node_get_net(node), app_idx);
+		if (net_idx == NET_IDX_INVALID) {
+			l_debug("no net key for (%x)", net_idx);
+			return false;
+		}
 	}
 
+	if (!keyring_get_net_key(node, net_idx, &net_key)) {
+		l_debug("no net key for (%x)", net_idx);
+		return false;
+	}
 	l_debug("(%x) %p", app_idx, key);
 	l_debug("net_idx %x", net_idx);
 
