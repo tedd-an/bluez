@@ -328,12 +328,12 @@ fail:
 }
 
 static bool parse_manufacturer_data(DBusMessageIter *iter,
-					struct btd_adv_client *client)
+					struct btd_ad *ad)
 {
 	DBusMessageIter entries;
 
 	if (!iter) {
-		bt_ad_clear_manufacturer_data(client->data);
+		bt_ad_clear_manufacturer_data(ad);
 		return true;
 	}
 
@@ -342,7 +342,7 @@ static bool parse_manufacturer_data(DBusMessageIter *iter,
 
 	dbus_message_iter_recurse(iter, &entries);
 
-	bt_ad_clear_manufacturer_data(client->data);
+	bt_ad_clear_manufacturer_data(ad);
 
 	while (dbus_message_iter_get_arg_type(&entries)
 						== DBUS_TYPE_DICT_ENTRY) {
@@ -373,7 +373,7 @@ static bool parse_manufacturer_data(DBusMessageIter *iter,
 
 		DBG("Adding ManufacturerData for %04x", manuf_id);
 
-		if (!bt_ad_add_manufacturer_data(client->data, manuf_id,
+		if (!bt_ad_add_manufacturer_data(ad, manuf_id,
 							manuf_data, len))
 			goto fail;
 
@@ -383,8 +383,20 @@ static bool parse_manufacturer_data(DBusMessageIter *iter,
 	return true;
 
 fail:
-	bt_ad_clear_manufacturer_data(client->data);
+	bt_ad_clear_manufacturer_data(ad);
 	return false;
+}
+
+static bool parse_manufacturer_data_adv(DBusMessageIter *iter,
+					struct btd_adv_client *client)
+{
+	return parse_manufacturer_data(iter, client->data);
+}
+
+static bool parse_manufacturer_data_scan(DBusMessageIter *iter,
+					struct btd_adv_client *client)
+{
+	return parse_manufacturer_data(iter, client->scan);
 }
 
 static bool parse_service_data(DBusMessageIter *iter,
@@ -941,7 +953,8 @@ static struct adv_parser {
 	{ "Type", parse_type },
 	{ "ServiceUUIDs", parse_service_uuids },
 	{ "SolicitUUIDs", parse_solicit_uuids },
-	{ "ManufacturerData", parse_manufacturer_data },
+	{ "ManufacturerData", parse_manufacturer_data_adv },
+	{ "ManufacturerDataScanResponse", parse_manufacturer_data_scan },
 	{ "ServiceData", parse_service_data },
 	{ "Includes", parse_includes },
 	{ "LocalName", parse_local_name },
