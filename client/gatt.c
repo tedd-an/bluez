@@ -2276,6 +2276,10 @@ static DBusMessage *chrc_write_value(DBusConnection *conn, DBusMessage *msg,
 	if (prep_authorize)
 		return g_dbus_create_reply(msg, DBUS_TYPE_INVALID);
 
+    if (offset >= (chrc->max_val_len))
+        return g_dbus_create_error(msg,
+				"org.bluez.Error.InvalidOffset", NULL);
+
 	if (write_value(&chrc->value_len, &chrc->value, value, value_len,
 						offset, chrc->max_val_len))
 		return g_dbus_create_error(msg,
