@@ -326,3 +326,8 @@ Properties	string Address [readonly]
 
 			Local Device ID information in modalias format
 			used by the kernel and udev.
+
+		boolean ConcurrentLERolesSupported [readonly]
+
+			Indicates if the adapter supports concurrent central
+			and peripheral role at the same time.
