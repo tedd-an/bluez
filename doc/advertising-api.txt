@@ -51,6 +51,12 @@ Properties	string Type
 			the Advertising Data.  Keys are the Manufacturer ID
 			to associate with the data.
 
+		dict ManufacturerDataScanResponse [Experimental]
+
+			Manufactuer Data fields to include in
+			the Scan Response.  Keys are the Manufacturer ID
+			to associate with the data.
+
 		array{string} SolicitUUIDs
 
 			Array of UUIDs to include in "Service Solicitation"
