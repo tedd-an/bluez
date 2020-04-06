@@ -58,8 +58,10 @@ static void usage(void)
 		"\t-s                    Create local server sockets\n"
 		"\t-l [num]              Number of local controllers\n"
 		"\t-L                    Create LE only controller\n"
+		"\t-U [num]              Number of test LE controllers\n"
 		"\t-B                    Create BR/EDR only controller\n"
 		"\t-A                    Create AMP controller\n"
+		"\t-T [num]              Number of test AMP controllers\n"
 		"\t-h, --help            Show help options\n");
 }
 
@@ -97,7 +99,7 @@ int main(int argc, char *argv[])
 	for (;;) {
 		int opt;
 
-		opt = getopt_long(argc, argv, "Ssl::LBAUTvh",
+		opt = getopt_long(argc, argv, "Ssl::LBAU::T::vh",
 						main_options, NULL);
 		if (opt < 0)
 			break;
