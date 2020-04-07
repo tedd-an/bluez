@@ -4473,16 +4473,38 @@ int main(int argc, char *argv[])
 			raw_pdu(0x18, 0x01),
 			raw_pdu(0x01, 0x18, 0x25, 0x00, 0x06));
 
-	define_test_server("/robustness/unkown-request",
+	define_test_server("/robustness/unknown-request",
+			test_server, service_db_1, NULL,
+			raw_pdu(0x03, 0x00, 0x02),
+			raw_pdu(0x3f, 0x00),
+			raw_pdu(0x01, 0x3f, 0x00, 0x00, 0x06));
+
+	define_test_server("/robustness/unknown-command",
+			test_server, service_db_1, NULL,
+			raw_pdu(0x03, 0x00, 0x02),
+			raw_pdu(0x7f, 0x00),
+			raw_pdu());
+
+	/*
+	 * According to BT core spec Vol 3, Part C, Sec 10.4.2:
+	 * A device receiving signed data shall authenticate it by performing
+	 * the Signing Algorithm. If the MAC computed by the Signing Algorithm
+	 * does not match the received MAC, the verification fails and the Host
+	 * shall ignore the received Data PDU.
+	 *
+	 * However, according to BT core spec Vol 3, Part F, Sec 3.3
+	 * If a server receives a request that it does not support, then the
+	 * server shall respond with the ATT_ERROR_RSP PDU with the error code
+	 * Request Not Supported.
+	 *
+	 * Since there is no explicit instruction on what should be done in
+	 * case the server receives a bad signed unsupported request, here
+	 * we just ignore the received PDU.
+	 */
+	define_test_server("/robustness/signed-unknown-request",
 			test_server, service_db_1, NULL,
 			raw_pdu(0x03, 0x00, 0x02),
 			raw_pdu(0xbf, 0x00),
-			raw_pdu(0x01, 0xbf, 0x00, 0x00, 0x06));
-
-	define_test_server("/robustness/unkown-command",
-			test_server, service_db_1, NULL,
-			raw_pdu(0x03, 0x00, 0x02),
-			raw_pdu(0xff, 0x00),
 			raw_pdu());
 
 	return tester_run();
