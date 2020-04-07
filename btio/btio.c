@@ -1676,12 +1676,16 @@ GIOChannel *bt_io_connect(BtIOConnect connect, gpointer user_data,
 	ret = parse_set_opts(&opts, gerr, opt1, args);
 	va_end(args);
 
-	if (ret == FALSE)
+	if (ret == FALSE) {
+		fprintf(stderr, "bt_io_connect(type:%d) err1\n", opts.type);
 		return NULL;
+	}
 
 	io = create_io(FALSE, &opts, gerr);
-	if (io == NULL)
+	if (io == NULL) {
+		fprintf(stderr, "bt_io_connect(type:%d) err2\n", opts.type);
 		return NULL;
+	}
 
 	sock = g_io_channel_unix_get_fd(io);
 
