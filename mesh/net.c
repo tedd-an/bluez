@@ -2717,6 +2717,12 @@ static void update_iv_ivu_state(struct mesh_net *net, uint32_t iv_index,
 			return;
 		}
 
+		/* Ignore beacons with IVU if IV already updated */
+		if (iv_index == net->iv_index) {
+			l_info("iv already updated");
+			return;
+		}
+
 		if (!net->iv_update) {
 			l_info("iv_upd_state = IV_UPD_UPDATING");
 			net->iv_upd_state = IV_UPD_UPDATING;
