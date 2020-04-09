@@ -1,0 +1,163 @@
+BlueZ D-Bus Advertisement Monitoring API Description
+****************************************************
+
+This API allows an application to specify a job of monitoring advertisements
+by providing a filter with filtering conditions, thresholds of RSSI and timers
+of RSSI thresholds.
+
+Once an application registers a monitoring job, it can expect to get notified
+on its targeted advertisements no matter if there is an ongoing discovery
+session (a discovery session is started/stopped with methods in
+org.bluez.Adapter1 interface).
+
+Advertisement Filter hierarchy
+==============================
+Service		org.bluez
+Interface	org.bluez.AdvertisementFilter1
+Object path	freely definable
+
+Methods		void Release() [noreply]
+
+			This gets called as a signal for a client to perform
+			clean-up when BlueZ has invalidated the filter.
+
+		void DeviceInRange(object device, int16 RSSI, int16 TX_power,
+				   array{dict} ADV_data,
+				   array{uint8} ADV_raw_data)
+
+			If RSSIThreshholdsAndTimers exists, this gets called to
+			notify the client on finding the targeted device when
+			RSSI(s) of the matched advertisement(s) exceed the
+			HighRSSIThreshold at least HighRSSIThresholdTimer.
+			If RSSIThreshholdsAndTimers does not exist, this does
+			not get called.
+
+			Parameters:
+			device		The device object path associated with
+					the advertisement.
+			RSSI		The RSSI comes along with the
+					advertisement.
+			TX_power	The TX power AD data provided in the
+					advertisement. 127 indicates the absence
+					of TX power AD data.
+			ADV_data	The signature of adv_data is a{yv} where
+					“y” is the AD data type value and “v” is
+					the value of the AD data where the type
+					may vary depending on the AD data. For
+					instance, if "y" is 0x16, "v" would be
+					an array of bytes.
+			ADV_raw_data	The raw bytes of AD data from the
+					advertisement packet.
+
+		void AdvertisementReceived(object device, int16 RSSI,
+					   int16 TX_power, array{dict} ADV_data,
+					   array{uint8} ADV_raw_data)
+
+			If RSSIThreshholdsAndTimers exists, this gets called
+			every time except for the first time when receiving the
+			matched advertisement(s) exceeding the
+			HighRSSIThreshold. Once DeviceOutOfRange() gets called,
+			this no longer gets called until DeviceInRange() gets
+			called again.
+			If RSSIThreshholdsAndTimers does not exist, this gets
+			called whenever receiving the matched advertisements.
+
+			Parameters:
+			device		The device object path associated with
+					the advertisement.
+			RSSI		The RSSI comes along with the
+					advertisement.
+			TX_power	The TX power AD data provided in the
+					advertisement. 127 indicates the absence
+					of TX power AD data.
+			ADV_data	The signature of adv_data is a{yv} where
+					“y” is the AD data type value and “v” is
+					the value of the AD data where the type
+					may vary depending on the AD data. For
+					instance, if "y" is 0x16, "v" would be
+					an array of bytes.
+			ADV_raw_data	The raw bytes of AD data from the
+					advertisement packet.
+
+		void DeviceOutOfRange(device object)
+
+			If RSSIThreshholdsAndTimers exists, this gets called
+			when RSSIs of the matched advertisements are lower than
+			LowRSSIThreshold for at least LowRSSIThresholdTimer to
+			notify the client on losing the targeted device.
+			If RSSIThreshholdsAndTimers does not exist, this won’t
+			get called.
+
+Properties	uint8 FilterType [read-only]
+
+			This can be the following values. More will be added.
+			0x01 - Patterns with OR logic relation
+
+		(Int16, Uint16, Int16, Uint16) RSSIThreshholdsAndTimers [read-only, optional]
+
+			The contains HighRSSIThreshold, HighRSSIThresholdTimer,
+			LowRSSIThreshold, LowRSSIThresholdTimer in order. The
+			unit of HighRSSIThreshold and LowRSSIThreshold is dBm.
+			The unit of HighRSSIThresholdTimer and
+			LowRSSIThresholdTimer is second.
+
+			A device is considered in-range when the RSSIs of the
+			received advertisement(s) during HighRSSIThresholdTimer
+			seconds exceed HighRSSIThreshold. Likewise, a device is
+			considered out-of-range when the RSSIs of the received
+			advertisement(s) during LowRSSIThresholdTimer do not
+			reach LowRSSIThreshold.
+
+		array{(uint8, uint8, string)} Patterns [read-only, optional]
+
+			If “PatternsWithORLogicRelation” is supported, this must
+			exist and has at least one entry in the array.
+
+			The structure of a pattern contains the following.
+			uint8 start_position
+				The index in an AD data field where the search
+				should start. The beginning of an AD data field
+				is index 0.
+			uint8 AD_data_type
+				See https://www.bluetooth.com/specifications/
+				assigned-numbers/generic-access-profile/ for
+				the possible allowed value.
+			string content_of_pattern
+				This is the value of the pattern.
+
+Advertisement Monitor hierarchy
+===============================
+Service		org.bluez
+Interface	org.bluez.AdvertisementMonitor1
+Object path	/org/bluez/{hci0,hci1,...}
+
+Methods		void RegisterApplication(object filter)
+
+			This registers a job of monitoring advertisement in a
+			power efficient way. Based on the content of the filter
+			upon registration, the filter object can expect to
+			receive the matched advertisements via DeviceInRange()
+			and AdvertisementReceived().
+
+		void UnregisterApplication(filter object)
+
+			This unregisters the job of monitoring advertisement.
+			The filter object can expect to be called on Release()
+			once the removal is done.
+
+		void UnregisterAllApplications()
+
+			This unregisters all jobs of monitoring advertisement.
+			All filter objects can expect to be called on Release()
+			once the removals are done.
+
+Properties	array{string} SupportedFilteringFeatures [read-only]
+
+			This reflects the supported features of advertisement
+			monitoring. An application should check this before
+			instantiate an object of org.bluez.AdvertisementFilter1.
+
+			Here are the potential features. More will be added.
+			"SoftwareBasedFiltering"
+			"PatternsWithORLogicRelation"
+			"RSSIMonitoring"
