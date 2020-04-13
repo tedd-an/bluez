@@ -430,9 +430,12 @@ static void send_join_failed(const char *owner, const char *path,
 }
 
 static void prov_join_complete_reply_cb(struct l_dbus_message *message,
-								void *user_data)
+                                                               void *user_data)
 {
-	bool failed = l_dbus_message_is_error(message);
+	bool failed = false;
+
+	if (!message || l_dbus_message_is_error(message))
+		failed = true;
 
 	if (!failed)
 		node_attach_io(join_pending->node, mesh.io);
@@ -468,13 +471,14 @@ static bool prov_complete_cb(void *user_data, uint8_t status,
 
 	token = node_get_token(join_pending->node);
 
+	l_debug("Calling JoinComplete (prov)");
 	msg = l_dbus_message_new_method_call(dbus, owner, path,
 						MESH_APPLICATION_INTERFACE,
 						"JoinComplete");
 
 	l_dbus_message_set_arguments(msg, "t", l_get_be64(token));
-	l_dbus_send_with_reply(dbus, msg,
-				prov_join_complete_reply_cb, NULL, NULL);
+	dbus_send_with_timeout(dbus, msg, prov_join_complete_reply_cb,
+						NULL, DEFAULT_DBUS_TIMEOUT);
 
 	return true;
 }
@@ -673,7 +677,7 @@ static void create_join_complete_reply_cb(struct l_dbus_message *message,
 {
 	struct mesh_node *node = user_data;
 
-	if (l_dbus_message_is_error(message)) {
+	if (!message || l_dbus_message_is_error(message)) {
 		node_remove(node);
 		return;
 	}
@@ -713,13 +717,14 @@ static void create_node_ready_cb(void *user_data, int status,
 	path = node_get_app_path(node);
 	token = node_get_token(node);
 
+	l_debug("Calling JoinComplete (create)");
 	msg = l_dbus_message_new_method_call(dbus, owner, path,
 						MESH_APPLICATION_INTERFACE,
 						"JoinComplete");
 
 	l_dbus_message_set_arguments(msg, "t", l_get_be64(token));
-	l_dbus_send_with_reply(dbus, msg,
-				create_join_complete_reply_cb, node, NULL);
+	dbus_send_with_timeout(dbus, msg, create_join_complete_reply_cb,
+						node, DEFAULT_DBUS_TIMEOUT);
 }
 
 static struct l_dbus_message *create_network_call(struct l_dbus *dbus,
