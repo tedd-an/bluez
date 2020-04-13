@@ -923,9 +923,25 @@ static void append_prop(gpointer a, gpointer b)
 }
 
 static uint16_t get_supported_features(const sdp_record_t *rec,
-					bool *have_features)
+					const char *uuid, bool *have_features)
 {
 	sdp_data_t *data;
+
+	if (strcasecmp(uuid, HSP_AG_UUID) == 0) {
+		/* HSP AG role does not provide any features */
+		*have_features = false;
+		return 0;
+	} else if (strcasecmp(uuid, HSP_HS_UUID) == 0) {
+		/* HSP HS role provides Remote Audio Volume Control */
+		data = sdp_data_get(rec, SDP_ATTR_REMOTE_AUDIO_VOLUME_CONTROL);
+		if (!data || data->dtd != SDP_BOOL) {
+			*have_features = false;
+			return 0;
+		} else {
+			*have_features = true;
+			return data->val.int8 ? 0x1 : 0x0;
+		}
+	}
 
 	data = sdp_data_get(rec, SDP_ATTR_SUPPORTED_FEATURES);
 	if (!data || data->dtd != SDP_UINT16) {
@@ -979,7 +995,7 @@ static bool send_new_connection(struct ext_profile *ext, struct ext_io *conn)
 		rec = btd_device_get_record(conn->device, remote_uuid);
 		if (rec) {
 			conn->features = get_supported_features(rec,
-							&conn->have_features);
+					remote_uuid, &conn->have_features);
 			conn->version = get_profile_version(rec);
 		}
 	}
@@ -1596,7 +1612,7 @@ static void record_cb(sdp_list_t *recs, int err, gpointer user_data)
 		if (conn->psm == 0 && sdp_get_proto_desc(protos, OBEX_UUID))
 			conn->psm = get_goep_l2cap_psm(rec);
 
-		conn->features = get_supported_features(rec,
+		conn->features = get_supported_features(rec, ext->remote_uuid,
 							&conn->have_features);
 		conn->version = get_profile_version(rec);
 
