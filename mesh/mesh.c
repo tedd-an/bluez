@@ -429,10 +429,9 @@ static void send_join_failed(const char *owner, const char *path,
 	free_pending_join_call(true);
 }
 
-static void prov_join_complete_reply_cb(struct l_dbus_message *message,
-								void *user_data)
+static void prov_join_complete_reply_cb(bool failed, void *user_data)
 {
-	bool failed = l_dbus_message_is_error(message);
+	l_debug("prov_join_complete_reply_cb");
 
 	if (!failed)
 		node_attach_io(join_pending->node, mesh.io);
@@ -468,13 +467,14 @@ static bool prov_complete_cb(void *user_data, uint8_t status,
 
 	token = node_get_token(join_pending->node);
 
+	l_debug("Calling JoinComplete (prov)");
 	msg = l_dbus_message_new_method_call(dbus, owner, path,
 						MESH_APPLICATION_INTERFACE,
 						"JoinComplete");
 
 	l_dbus_message_set_arguments(msg, "t", l_get_be64(token));
-	l_dbus_send_with_reply(dbus, msg,
-				prov_join_complete_reply_cb, NULL, NULL);
+	dbus_send_with_timeout(dbus, msg, prov_join_complete_reply_cb,
+								NULL, 30);
 
 	return true;
 }
@@ -668,12 +668,13 @@ static struct l_dbus_message *leave_call(struct l_dbus *dbus,
 	return l_dbus_message_new_method_return(msg);
 }
 
-static void create_join_complete_reply_cb(struct l_dbus_message *message,
-								void *user_data)
+static void create_join_complete_reply_cb(bool failed, void *user_data)
 {
 	struct mesh_node *node = user_data;
 
-	if (l_dbus_message_is_error(message)) {
+	l_debug("create_join_complete_reply_cb");
+
+	if (failed) {
 		node_remove(node);
 		return;
 	}
@@ -713,13 +714,14 @@ static void create_node_ready_cb(void *user_data, int status,
 	path = node_get_app_path(node);
 	token = node_get_token(node);
 
+	l_debug("Calling JoinComplete (create)");
 	msg = l_dbus_message_new_method_call(dbus, owner, path,
 						MESH_APPLICATION_INTERFACE,
 						"JoinComplete");
 
 	l_dbus_message_set_arguments(msg, "t", l_get_be64(token));
-	l_dbus_send_with_reply(dbus, msg,
-				create_join_complete_reply_cb, node, NULL);
+	dbus_send_with_timeout(dbus, msg, create_join_complete_reply_cb,
+								node, 30);
 }
 
 static struct l_dbus_message *create_network_call(struct l_dbus *dbus,

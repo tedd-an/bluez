@@ -37,6 +37,14 @@ struct error_entry {
 	const char *default_desc;
 };
 
+struct send_info {
+	struct l_dbus *dbus;
+	struct l_timeout *timeout;
+	dbus_send_with_to_func_t cb;
+	void *user_data;
+	uint32_t serial;
+};
+
 /*
  * Important: The entries in this table follow the order of
  * enumerated values in mesh_error (file error.h)
@@ -142,4 +150,39 @@ void dbus_append_dict_entry_basic(struct l_dbus_message_builder *builder,
 	l_dbus_message_builder_append_basic(builder, signature[0], data);
 	l_dbus_message_builder_leave_variant(builder);
 	l_dbus_message_builder_leave_dict(builder);
+}
+
+static void send_reply(struct l_dbus_message *message, void *user_data)
+{
+	struct send_info *info = user_data;
+	bool failed = l_dbus_message_is_error(message);
+
+	l_timeout_remove(info->timeout);
+	info->cb(failed, info->user_data);
+	l_free(info);
+}
+
+static void send_to(struct l_timeout *timeout, void *user_data)
+{
+	struct send_info *info = user_data;
+
+	l_dbus_cancel(info->dbus, info->serial);
+	l_timeout_remove(info->timeout);
+	info->cb(true, info->user_data);
+	l_free(info);
+}
+
+void dbus_send_with_timeout(struct l_dbus *dbus, struct l_dbus_message *msg,
+						dbus_send_with_to_func_t cb,
+						void *user_data,
+						unsigned int seconds)
+{
+	struct send_info *info = l_new(struct send_info, 1);
+
+	info->dbus = dbus;
+	info->cb = cb;
+	info->user_data = user_data;
+	info->serial = l_dbus_send_with_reply(dbus, msg, send_reply,
+								info, NULL);
+	info->timeout = l_timeout_create(seconds, send_to, info, NULL);
 }
