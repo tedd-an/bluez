@@ -647,6 +647,7 @@ struct ext_profile {
 
 	uint16_t version;
 	uint16_t features;
+	bool have_features;
 
 	GSList *records;
 	GSList *servers;
@@ -669,6 +670,7 @@ struct ext_io {
 
 	uint16_t version;
 	uint16_t features;
+	bool have_features;
 
 	uint16_t psm;
 	uint8_t chan;
@@ -920,14 +922,18 @@ static void append_prop(gpointer a, gpointer b)
 	dbus_message_iter_close_container(dict, &entry);
 }
 
-static uint16_t get_supported_features(const sdp_record_t *rec)
+static uint16_t get_supported_features(const sdp_record_t *rec,
+					bool *have_features)
 {
 	sdp_data_t *data;
 
 	data = sdp_data_get(rec, SDP_ATTR_SUPPORTED_FEATURES);
-	if (!data || data->dtd != SDP_UINT16)
+	if (!data || data->dtd != SDP_UINT16) {
+		*have_features = false;
 		return 0;
+	}
 
+	*have_features = true;
 	return data->val.uint16;
 }
 
@@ -972,7 +978,8 @@ static bool send_new_connection(struct ext_profile *ext, struct ext_io *conn)
 	if (remote_uuid) {
 		rec = btd_device_get_record(conn->device, remote_uuid);
 		if (rec) {
-			conn->features = get_supported_features(rec);
+			conn->features = get_supported_features(rec,
+							&conn->have_features);
 			conn->version = get_profile_version(rec);
 		}
 	}
@@ -991,7 +998,7 @@ static bool send_new_connection(struct ext_profile *ext, struct ext_io *conn)
 		dict_append_entry(&dict, "Version", DBUS_TYPE_UINT16,
 							&conn->version);
 
-	if (conn->features)
+	if (conn->have_features)
 		dict_append_entry(&dict, "Features", DBUS_TYPE_UINT16,
 							&conn->features);
 
@@ -1589,7 +1596,8 @@ static void record_cb(sdp_list_t *recs, int err, gpointer user_data)
 		if (conn->psm == 0 && sdp_get_proto_desc(protos, OBEX_UUID))
 			conn->psm = get_goep_l2cap_psm(rec);
 
-		conn->features = get_supported_features(rec);
+		conn->features = get_supported_features(rec,
+							&conn->have_features);
 		conn->version = get_profile_version(rec);
 
 		sdp_list_foreach(protos, (sdp_list_func_t) sdp_list_free,
@@ -1750,15 +1758,19 @@ static int ext_disconnect_dev(struct btd_service *service)
 static char *get_hfp_hf_record(struct ext_profile *ext, struct ext_io *l2cap,
 							struct ext_io *rfcomm)
 {
+	/* HFP 1.7.2: By default features bitfield is 0b000000 */
 	return g_strdup_printf(HFP_HF_RECORD, rfcomm->chan, ext->version,
-						ext->name, ext->features);
+				ext->name,
+				ext->have_features ? ext->features : 0x0);
 }
 
 static char *get_hfp_ag_record(struct ext_profile *ext, struct ext_io *l2cap,
 							struct ext_io *rfcomm)
 {
+	/* HFP 1.7.2: By default features bitfield is 0b001001 */
 	return g_strdup_printf(HFP_AG_RECORD, rfcomm->chan, ext->version,
-						ext->name, ext->features);
+				ext->name,
+				ext->have_features ? ext->features : 0x9);
 }
 
 static char *get_hsp_ag_record(struct ext_profile *ext, struct ext_io *l2cap,
@@ -1948,6 +1960,7 @@ static struct default_settings {
 					struct ext_io *rfcomm);
 	uint16_t	version;
 	uint16_t	features;
+	bool		have_features;
 } defaults[] = {
 	{
 		.uuid		= SPP_UUID,
@@ -2107,8 +2120,10 @@ static void ext_set_defaults(struct ext_profile *ext)
 		if (settings->version)
 			ext->version = settings->version;
 
-		if (settings->features)
+		if (settings->have_features) {
 			ext->features = settings->features;
+			ext->have_features = true;
+		}
 
 		if (settings->name)
 			ext->name = g_strdup(settings->name);
@@ -2198,6 +2213,7 @@ static int parse_ext_opt(struct ext_profile *ext, const char *key,
 
 		dbus_message_iter_get_basic(value, &feat);
 		ext->features = feat;
+		ext->have_features = true;
 	} else if (strcasecmp(key, "Service") == 0) {
 		if (type != DBUS_TYPE_STRING)
 			return -EINVAL;
