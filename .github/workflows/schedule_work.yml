@@ -2,7 +2,7 @@ name: Scheduled Work
 
 on:
   schedule:
-  - cron:  "*/30 * * * *"
+  - cron:  "*/8 * * * *"
 
 jobs:
 
@@ -26,10 +26,11 @@ jobs:
     needs: manage_repo
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v1
 
     - name: Patchwork to PR
       uses: tedd-an/action-patchwork-to-pr@master
       with:
         base_branch: "workflow"
         github_token: ${{ secrets.ACTION_TOKEN }}
+        mail_token: ${{ secrets.MAIL_TOKEN }}
