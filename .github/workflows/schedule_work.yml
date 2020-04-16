@@ -35,4 +35,4 @@ jobs:
       with:
         base_branch: "workflow"
         github_token: ${{ secrets.ACTION_TOKEN }}
-        mail_token: ${{ secrets.MAIL_TOKEN }}
+        email_token: ${{ secrets.EMAIL_TOKEN }}
