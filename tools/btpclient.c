@@ -3189,7 +3189,6 @@ int main(int argc, char *argv[])
 	if (!l_main_init())
 		return EXIT_FAILURE;
 
-
 	adapters = l_queue_new();
 
 	dbus = l_dbus_new_default(L_DBUS_SYSTEM_BUS);
