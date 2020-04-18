@@ -3138,6 +3138,74 @@ Read Security Information Command
 				Invalid Index
 
 
+Add Advertisement Patterns Monitor Command
+=========================================
+
+	Command Code:		0x0049
+	Controller Index:	<controller id>
+	Command Parameters:	Pattern_count (1 Octets)
+				Pattern1 {
+					AD_Data_Type (1 Octet)
+					Index (1 Octet)
+					Length (1 Octet)
+					Value (variable length)
+				}
+				Pattern2 { }
+				...
+	Return Parameters:	Monitor_Index (8 Octets)
+
+	This command is used to add an advertisement monitor whose filtering
+	conditions are patterns. The kernel would track the number of registered
+	monitors to determine whether to perform LE scanning while there is
+	ongoing LE scanning for other intentions, such as auto-reconnection and
+	discovery session. If the controller supports Microsoft HCI extension,
+	the kernel would offload the content filtering to the controller in
+	order to reduce power consumption; otherwise the kernel ignore the
+	content of the monitor.
+
+	Possible errors:	Failed
+				Busy
+				Invalid Parameters
+
+
+Remove Advertisement Monitor Command
+====================================
+
+	Command Code:		0x004A
+	Controller Index:	<controller id>
+	Command Parameters:	Monitor_Index (8 Octets)
+	Return Parameters:	Monitor_Index (8 Octets)
+
+	This command is used to remove an advertisement monitor. The kernel
+	would remove the monitor with Monitor_Index and update the LE scanning.
+	If the controller supports Microsoft HCI extension and the monitor has
+	been offloaded, the kernel would cancel the offloading; otherwise the
+	kernel takes no further actions other than removing it from the list.
+
+	Possible errors:	Failed
+				Busy
+				Invalid Index
+
+
+Remove All Advertisement Monitors Command
+=========================================
+
+	Command Code:		0x004B
+	Controller Index:	<controller id>
+	Command Parameters:
+	Return Parameters:	Num_removed_Monitors (2 Octets)
+				Monitor_Index[i] (2 Octets)
+
+	This command is used to remove all advertisement monitors. The kernel
+	would remove all monitors and update the LE scanning if needed. If the
+	controller supports Microsoft HCI extension the monitors have been
+	offloaded, the kernel would cancel all offloadings; otherwise the kernel
+	takes no further actions other than removing all monitors from the list.
+
+	Possible errors:	Failed
+				Busy
+
+
 Command Complete Event
 ======================
 
