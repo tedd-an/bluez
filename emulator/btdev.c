@@ -517,8 +517,8 @@ static void set_le_commands(struct btdev *btdev)
 	if (btdev->type >= BTDEV_TYPE_BREDRLE50)
 		set_le_50_commands(btdev);
 
-	/* Extra LE commands for >= 6.0 adapters */
-	if (btdev->type >= BTDEV_TYPE_BREDRLE60)
+	/* Extra LE commands for >= 5.2 adapters */
+	if (btdev->type >= BTDEV_TYPE_BREDRLE52)
 		set_le_60_commands(btdev);
 }
 
@@ -588,7 +588,7 @@ static void set_bredrle_features(struct btdev *btdev)
 		btdev->le_features[1] |= 0x10;  /* LE EXT ADV */
 	}
 
-	if (btdev->type >= BTDEV_TYPE_BREDRLE60) {
+	if (btdev->type >= BTDEV_TYPE_BREDRLE52) {
 		btdev->le_features[3] |= 0x10;  /* LE CIS Master */
 		btdev->le_features[3] |= 0x20;  /* LE CIS Slave */
 		btdev->le_features[3] |= 0x40;  /* LE ISO Broadcaster */
@@ -692,7 +692,7 @@ struct btdev *btdev_create(enum btdev_type type, uint16_t id)
 
 	if (type == BTDEV_TYPE_BREDRLE || type == BTDEV_TYPE_LE ||
 			type == BTDEV_TYPE_BREDRLE50 ||
-			type == BTDEV_TYPE_BREDRLE60) {
+			type == BTDEV_TYPE_BREDRLE52) {
 		btdev->crypto = bt_crypto_new();
 		if (!btdev->crypto) {
 			free(btdev);
@@ -708,7 +708,7 @@ struct btdev *btdev_create(enum btdev_type type, uint16_t id)
 	switch (btdev->type) {
 	case BTDEV_TYPE_BREDRLE:
 	case BTDEV_TYPE_BREDRLE50:
-	case BTDEV_TYPE_BREDRLE60:
+	case BTDEV_TYPE_BREDRLE52:
 		btdev->version = 0x09;
 		set_bredrle_features(btdev);
 		set_bredrle_commands(btdev);
@@ -3077,7 +3077,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 	case BT_HCI_CMD_READ_LE_HOST_SUPPORTED:
 		if (btdev->type != BTDEV_TYPE_BREDRLE &&
 				btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 		rlhs.status = BT_HCI_ERR_SUCCESS;
 		rlhs.supported = btdev->le_supported;
@@ -3089,7 +3089,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		if (btdev->type != BTDEV_TYPE_BREDRLE &&
 				btdev->type != BTDEV_TYPE_LE &&
 				btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 		wlhs = data;
 		btdev->le_supported = wlhs->supported;
@@ -3101,7 +3101,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 	case BT_HCI_CMD_READ_SECURE_CONN_SUPPORT:
 		if (btdev->type != BTDEV_TYPE_BREDRLE &&
 				btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 		rscs.status = BT_HCI_ERR_SUCCESS;
 		rscs.support = btdev->secure_conn_support;
@@ -3111,7 +3111,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 	case BT_HCI_CMD_WRITE_SECURE_CONN_SUPPORT:
 		if (btdev->type != BTDEV_TYPE_BREDRLE &&
 				btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 		wscs = data;
 		btdev->secure_conn_support = wscs->support;
@@ -3122,7 +3122,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 	case BT_HCI_CMD_READ_LOCAL_OOB_EXT_DATA:
 		if (btdev->type != BTDEV_TYPE_BREDRLE &&
 				btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 		rloed.status = BT_HCI_ERR_SUCCESS;
 		cmd_complete(btdev, opcode, &rloed, sizeof(rloed));
@@ -3131,7 +3131,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 	case BT_HCI_CMD_READ_SYNC_TRAIN_PARAMS:
 		if (btdev->type != BTDEV_TYPE_BREDRLE &&
 				btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 		rstp.status = BT_HCI_ERR_SUCCESS;
 		rstp.interval = cpu_to_le16(btdev->sync_train_interval);
@@ -3283,7 +3283,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		if (btdev->type != BTDEV_TYPE_BREDRLE &&
 					btdev->type != BTDEV_TYPE_BREDR &&
 					btdev->type != BTDEV_TYPE_BREDRLE50 &&
-					btdev->type != BTDEV_TYPE_BREDRLE60)
+					btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 		reks = data;
 		read_enc_key_size_complete(btdev, le16_to_cpu(reks->handle));
@@ -3659,7 +3659,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_READ_NUM_SUPPORTED_ADV_SETS:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		rlrnsas.status = BT_HCI_ERR_SUCCESS;
@@ -3669,7 +3669,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_SET_ADV_SET_RAND_ADDR:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		lsasra = data;
@@ -3679,7 +3679,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_SET_EXT_ADV_PARAMS:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		if (btdev->le_adv_enable) {
@@ -3700,7 +3700,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_SET_EXT_ADV_ENABLE:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		lseae = data;
@@ -3716,7 +3716,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_SET_EXT_ADV_DATA:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		lsead = data;
@@ -3727,7 +3727,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_SET_EXT_SCAN_RSP_DATA:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		lsesrd = data;
@@ -3738,7 +3738,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_REMOVE_ADV_SET:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		status = BT_HCI_ERR_SUCCESS;
@@ -3746,7 +3746,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_CLEAR_ADV_SETS:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		status = BT_HCI_ERR_SUCCESS;
@@ -3768,7 +3768,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		lsesp = data;
@@ -3791,7 +3791,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		lsese = data;
@@ -3806,14 +3806,14 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_EXT_CREATE_CONN:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		cmd_status(btdev, BT_HCI_ERR_SUCCESS, opcode);
 		break;
 
 	case BT_HCI_CMD_LE_READ_BUFFER_SIZE_V2:
-		if (btdev->type != BTDEV_TYPE_BREDRLE60)
+		if (btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 		lrbsv2.status = BT_HCI_ERR_SUCCESS;
 		lrbsv2.acl_mtu = cpu_to_le16(btdev->acl_mtu);
@@ -3824,7 +3824,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 
 	case BT_HCI_CMD_LE_SET_CIG_PARAMS:
-		if (btdev->type != BTDEV_TYPE_BREDRLE60)
+		if (btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 		memcpy(&btdev->le_cig, data, len);
 		lscp.params.status = BT_HCI_ERR_SUCCESS;
@@ -3835,7 +3835,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 
 	case BT_HCI_CMD_LE_CREATE_CIS:
-		if (btdev->type != BTDEV_TYPE_BREDRLE60)
+		if (btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		cmd_status(btdev, BT_HCI_ERR_SUCCESS, opcode);
@@ -3843,7 +3843,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 
 	case BT_HCI_CMD_LE_ACCEPT_CIS:
-		if (btdev->type != BTDEV_TYPE_BREDRLE60)
+		if (btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		cmd_status(btdev, BT_HCI_ERR_SUCCESS, opcode);
@@ -3852,7 +3852,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 
 	case BT_HCI_CMD_LE_REJECT_CIS:
-		if (btdev->type != BTDEV_TYPE_BREDRLE60)
+		if (btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		cmd_status(btdev, BT_HCI_ERR_SUCCESS, opcode);
@@ -3863,7 +3863,7 @@ static void default_cmd(struct btdev *btdev, uint16_t opcode,
 		break;
 
 	case BT_HCI_CMD_LE_SET_HOST_FEATURE:
-		if (btdev->type != BTDEV_TYPE_BREDRLE60)
+		if (btdev->type != BTDEV_TYPE_BREDRLE52)
 			goto unsupported;
 
 		status = BT_HCI_ERR_SUCCESS;
@@ -4108,7 +4108,7 @@ static void default_cmd_completion(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			return;
 		lsese = data;
 		if (btdev->le_scan_enable && lsese->enable)
@@ -4116,7 +4116,7 @@ static void default_cmd_completion(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_EXT_CREATE_CONN:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			return;
 		leecc = data;
 		btdev->le_scan_own_addr_type = leecc->own_addr_type;
@@ -4124,7 +4124,7 @@ static void default_cmd_completion(struct btdev *btdev, uint16_t opcode,
 		break;
 	case BT_HCI_CMD_LE_CREATE_CIS:
 		if (btdev->type != BTDEV_TYPE_BREDRLE50 &&
-				btdev->type != BTDEV_TYPE_BREDRLE60)
+				btdev->type != BTDEV_TYPE_BREDRLE52)
 			return;
 		leccis = data;
 		le_cis_request(btdev, leccis);
