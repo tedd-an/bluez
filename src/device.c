@@ -1584,6 +1584,7 @@ static void device_profile_connected(struct btd_device *dev,
 					struct btd_profile *profile, int err)
 {
 	struct btd_service *pending;
+	bool report_error;
 	GSList *l;
 
 	DBG("%s %s (%d)", profile->name, strerror(-err), -err);
@@ -1632,9 +1633,16 @@ done:
 
 	DBG("returning response to %s", dbus_message_get_sender(dev->connect));
 
-	l = find_service_with_state(dev->services, BTD_SERVICE_STATE_CONNECTED);
+	if (err && dbus_message_is_method_call(dev->connect, DEVICE_INTERFACE,
+					"ConnectProfile"))
+		report_error = true;
+	else if (err && !find_service_with_state(dev->services,
+					BTD_SERVICE_STATE_CONNECTED))
+		report_error = true;
+	else
+		report_error = false;
 
-	if (err && l == NULL) {
+	if (report_error) {
 		/* Fallback to LE bearer if supported */
 		if (err == -EHOSTDOWN && dev->le && !dev->le_state.connected) {
 			err = device_connect_le(dev);
