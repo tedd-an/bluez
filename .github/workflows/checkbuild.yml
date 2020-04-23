@@ -13,3 +13,4 @@ jobs:
       uses: tedd-an/action-checkbuild@master
       with:
         github_token: ${{ secrets.ACTION_TOKEN }}
+        email_token: ${{ secrets.EMAIL_TOKEN }}
