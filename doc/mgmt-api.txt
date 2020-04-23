@@ -3138,6 +3138,102 @@ Read Security Information Command
 				Invalid Index
 
 
+Read Advertisement Monitor Features Command
+===========================================
+
+	Command Code:		0x0049
+	Controller Index:	<controller id>
+	Command Parameters:
+	Return Parameters:	Supported_Features (4 octets)
+				Adopted_Features (4 octets)
+
+	This command is used to read the advertisement monitor features supported
+	by the controller and stack. Supported_Features lists all related
+	features supported by the controller while Adopted_Features lists the
+	ones currently adopted by the stack.
+
+	Supported_Features and Adopted_Features are bitmasks with currently the
+	following available bits:
+
+		1	Advertisement content monitoring based on Microsoft HCI
+			extension.
+
+
+Add Advertisement Patterns Monitor Command
+=========================================
+
+	Command Code:		0x004A
+	Controller Index:	<controller id>
+	Command Parameters:	Pattern_count (1 Octets)
+				Pattern1 {
+					AD_Data_Type (1 Octet)
+					Offset (1 Octet)
+					Length (1 Octet)
+					Value (variable length)
+				}
+				Pattern2 { }
+				...
+	Return Parameters:	Monitor_Handle (4 Octets)
+
+	This command is used to add an advertisement monitor whose filtering
+	conditions are patterns. The kernel would track the number of registered
+	monitors to determine whether to perform LE scanning while there is
+	ongoing LE scanning for other intentions, such as auto-reconnection and
+	discovery session. If the controller supports advertisement filtering,
+	the kernel would offload the content filtering to the controller in
+	order to reduce power consumption; otherwise the kernel ignore the
+	content of the monitor. Note that if the there are more than one
+	patterns, OR logic would applied among patterns during filtering. In
+	other words, any advertisement matching at least one pattern in a given
+	monitor would be considered as a match.
+
+	A pattern contain the following fields.
+		AD_Data_Type	Advertising Data Type. The possible values are
+				defined in Core Specification Supplement.
+		Offset		The start index where pattern matching shall be
+				performed with in the AD data.
+		Length		The length of the pattern value in bytes.
+		Value		The value of the pattern in bytes.
+
+	Here is an example of a pattern.
+		{
+			0x16, // Service Data - 16-bit UUID
+			0x02, // Skip the UUID part.
+			0x04,
+			{0x11, 0x22, 0x33, 0x44},
+		}
+
+	Possible errors:	Failed
+				Busy
+				Invalid Parameters
+
+
+Remove Advertisement Monitor Command
+====================================
+
+	Command Code:		0x004B
+	Controller Index:	<controller id>
+	Command Parameters:	Monitor_Handle (4 Octets)
+	Return Parameters:
+
+	This command is used to remove advertisement monitor(s). The kernel
+	would remove the monitor(s) with Monitor_Index and update the LE
+	scanning. If the controller supports advertisement filtering and the
+	monitor(s) has been offloaded, the kernel would cancel the offloading;
+	otherwise the kernel takes no further actions other than removing the
+	monitor(s) from the list.
+
+	Monitor_Handle can be the following values.
+		Value		Operation
+		-------------------------
+		0x00000000		Removes all existing monitor(s)
+		0x00000001 or greater	Removes the monitor with that handle
+
+	Possible errors:	Failed
+				Busy
+				Invalid Index
+
+
 Command Complete Event
 ======================
 
@@ -4020,3 +4116,25 @@ PHY Configuration Changed Event
 	one through which the change was triggered.
 
 	Refer Get PHY Configuration command for PHYs parameter.
+
+
+Advertisement Monitor Added Event
+=================================
+
+	Event Code:		0x0027
+	Controller Index:	<controller id>
+	Event Parameters:	Monitor_Handle (4 Octets)
+
+	This event indicates that an advertisement monitor has been added using
+	the Add Advertisement Monitor command.
+
+
+Advertisement Monitor Removed Event
+===================================
+
+	Event Code:		0x0028
+	Controller Index:	<controller id>
+	Event Parameters:	Monitor_Handle (4 Octets)
+
+	This event indicates that an advertisement monitor has been removed
+	using the Remove Advertisement Monitor command.
