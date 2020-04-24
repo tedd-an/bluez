@@ -3160,6 +3160,8 @@ int main(int argc, char *argv[])
 
 	l_log_set_stderr();
 
+	/* This is a test comment to test checkpatch.pl for long line over 80 column line */
+
 	while ((opt = getopt_long(argc, argv, "+hs:vq", options, NULL)) != -1) {
 		switch (opt) {
 		case 's':
