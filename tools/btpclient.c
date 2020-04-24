@@ -62,7 +62,7 @@ struct btp_adapter {
 	uint32_t supported_settings;
 	uint32_t current_settings;
 	uint32_t default_settings;
-	struct l_queue *devices;
+        struct l_queue *devices;
 };
 
 struct btp_device {
