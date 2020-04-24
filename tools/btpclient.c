@@ -228,7 +228,8 @@ static struct btp_device *find_device_by_path(const char *path)
 	struct btp_device *device;
 
 	for (entry = l_queue_get_entries(adapters); entry;
-							entry = entry->next) {
+							entry = entry->next)
+	{
 		struct btp_adapter *adapter = entry->data;
 
 		device = l_queue_find(adapter->devices, match_device_paths,
