@@ -3215,7 +3215,7 @@ int main(int argc, char *argv[])
 
 	l_free(socket_path);
 
-	l_main_exit();
+	l_main_exit()
 
 	return EXIT_SUCCESS;
 }
