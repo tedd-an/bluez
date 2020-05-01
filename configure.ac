@@ -181,6 +181,10 @@ AC_ARG_ENABLE(hog, AC_HELP_STRING([--disable-hog],
 		[disable HoG profile]), [enable_hog=${enableval}])
 AM_CONDITIONAL(HOG, test "${enable_hog}" != "no")
 
+AC_ARG_ENABLE(battery, AC_HELP_STRING([--disable-battery],
+		[disable battery profile]), [enable_battery=${enableval}])
+AM_CONDITIONAL(BATTERY, test "${enable_battery}" != "no")
+
 AC_ARG_ENABLE(health, AC_HELP_STRING([--enable-health],
 		[enable health profiles]), [enable_health=${enableval}])
 AM_CONDITIONAL(HEALTH, test "${enable_health}" = "yes")

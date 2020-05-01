@@ -101,8 +101,10 @@ builtin_cppflags += $(ALSA_CFLAGS)
 builtin_ldadd += $(ALSA_LIBS)
 endif
 
+if BATTERY
 builtin_modules += battery
 builtin_sources += profiles/battery/battery.c
+endif
 
 if SIXAXIS
 plugin_LTLIBRARIES += plugins/sixaxis.la
