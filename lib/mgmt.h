@@ -586,6 +586,8 @@ struct mgmt_cp_set_phy_confguration {
 
 #define MGMT_OP_SET_BLOCKED_KEYS	0x0046
 
+#define MGMT_OP_SET_WIDEBAND_SPEECH	0x0047
+
 #define MGMT_OP_READ_SECURITY_INFO	0x0048
 struct mgmt_rp_read_security_info {
 	uint16_t sec_len;
@@ -605,8 +607,6 @@ struct mgmt_cp_set_blocked_keys {
 	uint16_t key_count;
 	struct mgmt_blocked_key_info keys[0];
 } __packed;
-
-#define MGMT_OP_SET_WIDEBAND_SPEECH	0x0047
 
 #define MGMT_EV_CMD_COMPLETE		0x0001
 struct mgmt_ev_cmd_complete {
