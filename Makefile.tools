@@ -176,9 +176,9 @@ endif
 if TOOLS
 bin_PROGRAMS += tools/rctest tools/l2test tools/l2ping tools/bccmd \
 			tools/bluemoon tools/hex2hcd tools/mpris-proxy \
-			tools/btattach
+			tools/btattach tools/avinfo
 
-noinst_PROGRAMS += tools/bdaddr tools/avinfo tools/avtest \
+noinst_PROGRAMS += tools/bdaddr tools/avtest \
 			tools/scotest tools/amptest tools/hwdb \
 			tools/hcieventmask tools/hcisecfilter \
 			tools/btinfo tools/btconfig \
