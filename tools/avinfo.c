@@ -65,6 +65,7 @@
 #define AVDTP_HEADER_COMPRESSION	0x05
 #define AVDTP_MULTIPLEXING		0x06
 #define AVDTP_MEDIA_CODEC		0x07
+#define AVDTP_DELAY_REPORTING		0x08
 
 /* SEP types definitions */
 #define AVDTP_SEP_TYPE_SOURCE		0x00
@@ -696,13 +697,33 @@ static void print_caps(void *data, int size)
 
 		switch (cap->category) {
 		case AVDTP_MEDIA_TRANSPORT:
-		case AVDTP_REPORTING:
-		case AVDTP_RECOVERY:
-		case AVDTP_MULTIPLEXING:
-			/* FIXME: Add proper functions */
+			printf("\tMedia Transport: Supported\n");
 			break;
+		case AVDTP_REPORTING:
+			printf("\tReporting: Supported\n");
+			break;
+		case AVDTP_DELAY_REPORTING:
+			printf("\tDelay Reporting: Supported\n");
+			break;
+		case AVDTP_RECOVERY:
+		case AVDTP_HEADER_COMPRESSION:
+		case AVDTP_MULTIPLEXING:
 		default:
-			printf("\tUnknown category: %d\n", cap->category);
+			switch (cap->category) {
+			case AVDTP_RECOVERY:
+				printf("\tRecovery:\n");
+				break;
+			case AVDTP_HEADER_COMPRESSION:
+				printf("\tHeader compression:\n");
+				break;
+			case AVDTP_MULTIPLEXING:
+				printf("\tMultiplexing:\n");
+				break;
+			default:
+				printf("\tUnknown category: %d\n", cap->category);
+				break;
+			}
+			/* FIXME: Add proper functions */
 			printf("\t\tData:");
 			for (i = 0; i < cap->length; ++i)
 				printf(" 0x%.02x",
