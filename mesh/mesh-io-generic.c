@@ -769,6 +769,26 @@ static bool find_active(const void *a, const void *b)
 	return false;
 }
 
+static bool dev_restart(struct mesh_io *io)
+{
+	struct bt_hci_cmd_le_set_scan_enable cmd;
+	struct mesh_io_private *pvt = io->pvt;
+
+	if (!pvt)
+		return false;
+
+	if (l_queue_isempty(pvt->rx_regs))
+		return true;
+
+	pvt->active = l_queue_find(pvt->rx_regs, find_active, NULL);
+	cmd.enable = 0x00;	/* Disable scanning */
+	cmd.filter_dup = 0x00;	/* Report duplicates */
+	bt_hci_send(pvt->hci, BT_HCI_CMD_LE_SET_SCAN_ENABLE,
+				&cmd, sizeof(cmd), scan_disable_rsp, pvt, NULL);
+
+	return true;
+}
+
 static bool recv_register(struct mesh_io *io, const uint8_t *filter,
 			uint8_t len, mesh_io_recv_func_t cb, void *user_data)
 {
@@ -845,6 +865,7 @@ static bool recv_deregister(struct mesh_io *io, const uint8_t *filter,
 const struct mesh_io_api mesh_io_generic = {
 	.init = dev_init,
 	.destroy = dev_destroy,
+	.restart = dev_restart,
 	.caps = dev_caps,
 	.send = send_tx,
 	.reg = recv_register,

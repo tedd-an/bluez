@@ -96,6 +96,14 @@ fail:
 	return NULL;
 }
 
+void mesh_io_restart(struct mesh_io *io)
+{
+	io = l_queue_find(io_list, match_by_io, io);
+
+	if (io && io->api)
+		io->api->restart(io);
+}
+
 void mesh_io_destroy(struct mesh_io *io)
 {
 	io = l_queue_remove_if(io_list, match_by_io, io);

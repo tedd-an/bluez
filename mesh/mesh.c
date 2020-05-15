@@ -66,6 +66,7 @@ struct bt_mesh {
 	uint16_t req_index;
 	uint8_t friend_queue_sz;
 	uint8_t max_filters;
+	bool initialized;
 };
 
 struct join_data{
@@ -91,7 +92,8 @@ static struct bt_mesh mesh = {
 	.lpn_support = false,
 	.proxy_support = false,
 	.crpl = DEFAULT_CRPL,
-	.friend_queue_sz = DEFAULT_FRIEND_QUEUE_SZ
+	.friend_queue_sz = DEFAULT_FRIEND_QUEUE_SZ,
+	.initialized = false
 };
 
 /* We allow only one outstanding Join request */
@@ -168,8 +170,16 @@ static void io_ready_callback(void *user_data, bool result)
 {
 	struct mesh_init_request *req = user_data;
 
+	if (mesh.initialized) {
+		if (result)
+			mesh_io_restart(mesh.io);
+		return;
+	}
+
 	if (result)
 		node_attach_io_all(mesh.io);
+
+	mesh.initialized = true;
 
 	req->cb(req->user_data, result);
 
