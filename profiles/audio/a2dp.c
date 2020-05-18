@@ -1847,11 +1847,25 @@ static gboolean get_device(const GDBusPropertyTable *property,
 	return TRUE;
 }
 
+static gboolean get_delay_reporting(const GDBusPropertyTable *property,
+					DBusMessageIter *iter, void *data)
+{
+	struct a2dp_remote_sep *sep = data;
+	dbus_bool_t delay_report;
+
+	delay_report = avdtp_get_delay_reporting(sep->sep);
+
+	dbus_message_iter_append_basic(iter, DBUS_TYPE_BOOLEAN, &delay_report);
+
+	return TRUE;
+}
+
 static const GDBusPropertyTable sep_properties[] = {
 	{ "UUID", "s", get_uuid, NULL, NULL },
 	{ "Codec", "y", get_codec, NULL, NULL },
 	{ "Capabilities", "ay", get_capabilities, NULL, NULL },
 	{ "Device", "o", get_device, NULL, NULL },
+	{ "DelayReporting", "b", get_delay_reporting, NULL, NULL },
 	{ }
 };
 
@@ -1935,9 +1949,13 @@ static void load_remote_sep(struct a2dp_channel *chan, GKeyFile *key_file,
 	struct avdtp_remote_sep *rsep;
 	uint8_t lseid, rseid;
 	char *value;
+	bool delay_report;
 
 	if (!seids)
 		return;
+
+	delay_report = g_key_file_get_boolean(key_file, "Endpoints",
+						"DelayReporting", NULL);
 
 	for (; *seids; seids++) {
 		uint8_t type;
@@ -1979,7 +1997,8 @@ static void load_remote_sep(struct a2dp_channel *chan, GKeyFile *key_file,
 
 		caps_add_codec(&l, codec, data, size / 2);
 
-		rsep = avdtp_register_remote_sep(chan->session, rseid, type, l);
+		rsep = avdtp_register_remote_sep(chan->session, rseid, type, l,
+								delay_report);
 		if (!rsep) {
 			warn("Unable to register Endpoint: seid %u", rseid);
 			continue;
@@ -2602,10 +2621,15 @@ static struct queue *a2dp_select_eps(struct avdtp *session, uint8_t type,
 	return a2dp_find_eps(session, l, NULL);
 }
 
+struct store_data {
+	GKeyFile *key_file;
+	bool delay_reporting;
+};
+
 static void store_remote_sep(void *data, void *user_data)
 {
 	struct a2dp_remote_sep *sep = data;
-	GKeyFile *key_file = (void *) user_data;
+	struct store_data *store = user_data;
 	char seid[4], value[256];
 	struct avdtp_service_capability *service = avdtp_get_codec(sep->sep);
 	struct avdtp_media_codec_capability *codec = (void *) service->data;
@@ -2620,8 +2644,10 @@ static void store_remote_sep(void *data, void *user_data)
 	for (i = 0; i < service->length - sizeof(*codec); i++)
 		offset += sprintf(value + offset, "%02hhx", codec->data[i]);
 
+	g_key_file_set_string(store->key_file, "Endpoints", seid, value);
 
-	g_key_file_set_string(key_file, "Endpoints", seid, value);
+	if (!store->delay_reporting && avdtp_get_delay_reporting(sep->sep))
+		store->delay_reporting = true;
 }
 
 static void store_remote_seps(struct a2dp_channel *chan)
@@ -2629,9 +2655,9 @@ static void store_remote_seps(struct a2dp_channel *chan)
 	struct btd_device *device = chan->device;
 	char filename[PATH_MAX];
 	char dst_addr[18];
-	GKeyFile *key_file;
 	char *data;
 	gsize length = 0;
+	struct store_data store;
 
 	if (queue_isempty(chan->seps))
 		return;
@@ -2641,26 +2667,33 @@ static void store_remote_seps(struct a2dp_channel *chan)
 	snprintf(filename, PATH_MAX, STORAGEDIR "/%s/cache/%s",
 			btd_adapter_get_storage_dir(device_get_adapter(device)),
 			dst_addr);
-	key_file = g_key_file_new();
-	g_key_file_load_from_file(key_file, filename, 0, NULL);
+	store.key_file = g_key_file_new();
+	g_key_file_load_from_file(store.key_file, filename, 0, NULL);
 
-	data = g_key_file_get_string(key_file, "Endpoints", "LastUsed", NULL);
+	data = g_key_file_get_string(store.key_file, "Endpoints", "LastUsed",
+								NULL);
 
 	/* Remove current endpoints since it might have changed */
-	g_key_file_remove_group(key_file, "Endpoints", NULL);
+	g_key_file_remove_group(store.key_file, "Endpoints", NULL);
 
-	queue_foreach(chan->seps, store_remote_sep, key_file);
+	queue_foreach(chan->seps, store_remote_sep, &store);
+
+	if (store.delay_reporting)
+		g_key_file_set_boolean(store.key_file, "Endpoints",
+						"DelayReporting",
+						store.delay_reporting);
 
 	if (data) {
-		g_key_file_set_string(key_file, "Endpoints", "LastUsed", data);
+		g_key_file_set_string(store.key_file, "Endpoints", "LastUsed",
+						data);
 		g_free(data);
 	}
 
-	data = g_key_file_to_data(key_file, &length, NULL);
+	data = g_key_file_to_data(store.key_file, &length, NULL);
 	g_file_set_contents(filename, data, length, NULL);
 
 	g_free(data);
-	g_key_file_free(key_file);
+	g_key_file_free(store.key_file);
 }
 
 static void discover_cb(struct avdtp *session, GSList *seps,
