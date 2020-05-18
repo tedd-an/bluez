@@ -225,6 +225,8 @@ Sample Attributes section:
 	LastUsed:<xx>:<xx>	String	LastUsed has two fields which are the
 					local and remote seids as hexadecimal
 					encoded string.
+	DelayReporting:		Bool	DelayReporting indicates remote
+					support Delay Reporting feature.
 
 Info file format
 ================
