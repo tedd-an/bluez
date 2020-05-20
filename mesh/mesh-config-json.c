@@ -2309,7 +2309,7 @@ bool mesh_config_load_nodes(const char *cfgdir_name, mesh_config_node_func_t cb,
 	return true;
 }
 
-void mesh_config_destroy(struct mesh_config *cfg)
+void mesh_config_release_nvm(struct mesh_config *cfg)
 {
 	char *node_dir, *node_name;
 	char uuid[33];

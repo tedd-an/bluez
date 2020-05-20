@@ -352,8 +352,7 @@ void node_remove(struct mesh_node *node)
 
 	l_queue_remove(nodes, node);
 
-	if (node->cfg)
-		mesh_config_destroy(node->cfg);
+	mesh_config_release_nvm(node->cfg);
 
 	free_node_resources(node);
 }
