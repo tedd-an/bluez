@@ -745,6 +745,32 @@ static gboolean property_get_address_type(const GDBusPropertyTable *property,
 	return TRUE;
 }
 
+static gboolean dev_property_get_types(const GDBusPropertyTable *property,
+					DBusMessageIter *iter, void *data)
+{
+	struct btd_device *device = data;
+	const char *type;
+
+	DBusMessageIter array;
+
+	dbus_message_iter_open_container(iter, DBUS_TYPE_ARRAY,
+					DBUS_TYPE_BYTE_AS_STRING, &array);
+
+	if (device->bredr) {
+		type = "bredr";
+		dbus_message_iter_append_basic(&array, DBUS_TYPE_STRING, &type);
+	}
+
+	if (device->le) {
+		type = "le";
+		dbus_message_iter_append_basic(&array, DBUS_TYPE_STRING, &type);
+	}
+
+	dbus_message_iter_close_container(iter, &array);
+
+	return TRUE;
+}
+
 static gboolean dev_property_get_name(const GDBusPropertyTable *property,
 					DBusMessageIter *iter, void *data)
 {
@@ -2759,6 +2785,7 @@ static const GDBusMethodTable device_methods[] = {
 static const GDBusPropertyTable device_properties[] = {
 	{ "Address", "s", dev_property_get_address },
 	{ "AddressType", "s", property_get_address_type },
+	{ "Types", "as", dev_property_get_types, NULL, NULL },
 	{ "Name", "s", dev_property_get_name, NULL, dev_property_exists_name },
 	{ "Alias", "s", dev_property_get_alias, dev_property_set_alias },
 	{ "Class", "u", dev_property_get_class, NULL,
