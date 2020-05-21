@@ -1628,6 +1628,7 @@ static void cmd_info(int argc, char *argv[])
 		bt_shell_printf("Device %s\n", address);
 	}
 
+	print_property(proxy, "Types");
 	print_property(proxy, "Name");
 	print_property(proxy, "Alias");
 	print_property(proxy, "Class");
