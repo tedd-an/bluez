@@ -137,6 +137,11 @@ Properties	string Address [readonly]
 				"public" - Public address
 				"random" - Random address
 
+		array{string} Types [readonly]
+
+			The core configurations supported by this remote device.
+			It can contain "le" and "bredr".
+
 		string Name [readonly, optional]
 
 			The Bluetooth remote name. This value can not be
