@@ -49,6 +49,45 @@ struct main_opts {
 	uint32_t	discovto;
 	uint8_t		privacy;
 
+	struct {
+		uint16_t	num_set_params;
+
+		uint16_t	br_page_scan_type;
+		uint16_t	br_page_scan_interval;
+		uint16_t	br_page_scan_window;
+
+		uint16_t	br_inquiry_scan_type;
+		uint16_t	br_inquiry_scan_interval;
+		uint16_t	br_inquiry_scan_window;
+
+		uint16_t	br_link_supervision_timeout;
+		uint16_t	br_page_timeout;
+
+		uint16_t	br_min_sniff_interval;
+		uint16_t	br_max_sniff_interval;
+
+		uint16_t	le_min_adv_interval;
+		uint16_t	le_max_adv_interval;
+		uint16_t	le_multi_adv_rotation_interval;
+
+		uint16_t	le_scan_interval_autoconnect;
+		uint16_t	le_scan_window_autoconnect;
+		uint16_t	le_scan_interval_suspend;
+		uint16_t	le_scan_window_suspend;
+		uint16_t	le_scan_interval_discovery;
+		uint16_t	le_scan_window_discovery;
+		uint16_t	le_scan_interval_adv_monitor;
+		uint16_t	le_scan_window_adv_monitor;
+		uint16_t	le_scan_interval_connect;
+		uint16_t	le_scan_window_connect;
+
+		uint16_t	le_min_connection_interval;
+		uint16_t	le_max_connection_interval;
+		uint16_t	le_connection_latency;
+		uint16_t	le_connection_lsto;
+	} default_params;
+
+
 	gboolean	reverse_discovery;
 	gboolean	name_resolv;
 	gboolean	debug_keys;
