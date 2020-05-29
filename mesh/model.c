@@ -514,15 +514,8 @@ static void cmplt(uint16_t remote, uint8_t status,
 {
 	struct timeval tx_end;
 
-	if (status)
-		l_debug("Tx-->%4.4x (%d octets) Failed (%d)",
-				remote, size, status);
-	else
-		l_debug("Tx-->%4.4x (%d octets) Succeeded", remote, size);
-
-	/* print_packet("Sent Data", data, size); */
-
 	gettimeofday(&tx_end, NULL);
+
 	if (tx_end.tv_sec == tx_start.tv_sec) {
 		l_debug("Duration 0.%6.6lu seconds",
 				tx_end.tv_usec - tx_start.tv_usec);
@@ -580,21 +573,17 @@ static bool msg_send(struct mesh_node *node, bool credential, uint16_t src,
 		net_idx = appkey_net_idx(node_get_net(node), app_idx);
 	}
 
-	l_debug("(%x) %p", app_idx, key);
-	l_debug("net_idx %x", net_idx);
-
 	out = l_malloc(out_len);
 
 	iv_index = mesh_net_get_iv_index(net);
 
 	seq_num = mesh_net_next_seq_num(net);
+
 	if (!mesh_crypto_payload_encrypt(label, msg, out, msg_len, src, dst,
 				key_aid, seq_num, iv_index, szmic, key)) {
 		l_error("Failed to Encrypt Payload");
 		goto done;
 	}
-
-	/* print_packet("Encrypted with", key, 16); */
 
 	ret = mesh_net_app_send(net, credential, src, dst, key_aid, net_idx,
 					ttl, seq_num, iv_index, segmented,
@@ -646,8 +635,6 @@ static void model_bind_idx(struct mesh_node *node, struct mesh_model *mod,
 		mod->bindings = l_queue_new();
 
 	l_queue_push_tail(mod->bindings, L_UINT_TO_PTR(idx));
-
-	l_debug("Add %4.4x to model %8.8x", idx, mod->id);
 
 	if (!mod->cbs)
 		/* External model */
@@ -781,7 +768,6 @@ static int add_virt_sub(struct mesh_net *net, struct mesh_model *mod,
 
 		l_queue_push_head(mod->virtuals, virt);
 		mesh_net_dst_reg(net, virt->addr);
-		l_debug("Added virtual sub addr %4.4x", virt->addr);
 	}
 
 	if (dst)
@@ -809,7 +795,6 @@ static int add_sub(struct mesh_net *net, struct mesh_model *mod,
 
 		l_queue_push_tail(mod->subs, L_UINT_TO_PTR(grp));
 		mesh_net_dst_reg(net, grp);
-		l_debug("Added group subscription %4.4x", grp);
 	}
 
 	return MESH_STATUS_SUCCESS;
@@ -929,6 +914,7 @@ bool mesh_model_rx(struct mesh_node *node, bool szmict, uint32_t seq0,
 
 	/* Don't process if already in RPL */
 	crpl = node_get_crpl(node);
+
 	if (net_msg_check_replay_cache(net, src, crpl, seq, iv_index))
 		return false;
 
@@ -1064,8 +1050,6 @@ int mesh_model_publish(struct mesh_node *node, uint32_t mod_id,
 	bool result;
 	int status;
 
-	/* print_packet("Mod Tx", msg, msg_len); */
-
 	if (!net || msg_len > 380)
 		return MESH_ERROR_INVALID_ARGS;
 
@@ -1092,8 +1076,6 @@ int mesh_model_publish(struct mesh_node *node, uint32_t mod_id,
 	if (mod->pub->virt)
 		label = mod->pub->virt->label;
 
-	l_debug("publish dst=%x", mod->pub->addr);
-
 	net_idx = appkey_net_idx(net, mod->pub->idx);
 
 	result = msg_send(node, mod->pub->credential != 0, src,
@@ -1108,8 +1090,6 @@ bool mesh_model_send(struct mesh_node *node, uint16_t src, uint16_t dst,
 					uint8_t ttl, bool segmented,
 					const void *msg, uint16_t msg_len)
 {
-	/* print_packet("Mod Tx", msg, msg_len); */
-
 	/* If SRC is 0, use the Primary Element */
 	if (src == 0)
 		src = node_get_primary(node);
@@ -1279,14 +1259,12 @@ void mesh_model_app_key_delete(struct mesh_node *node, struct l_queue *models,
 int mesh_model_binding_del(struct mesh_node *node, uint16_t addr, uint32_t id,
 						uint16_t app_idx)
 {
-	l_debug("0x%x, 0x%x, %d", addr, id, app_idx);
 	return update_binding(node, addr, id, app_idx, true);
 }
 
 int mesh_model_binding_add(struct mesh_node *node, uint16_t addr, uint32_t id,
 						uint16_t app_idx)
 {
-	l_debug("0x%x, 0x%x, %d", addr, id, app_idx);
 	return update_binding(node, addr, id, app_idx, false);
 }
 
