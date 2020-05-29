@@ -80,7 +80,7 @@ static enum {
 	MPS_MULTIPLE,
 } mps = MPS_OFF;
 
-static const char *supported_options[] = {
+static const char * const supported_options[] = {
 	"Name",
 	"Class",
 	"DiscoverableTimeout",
@@ -129,7 +129,7 @@ static const char * const controller_options[] = {
 	NULL
 };
 
-static const char *policy_options[] = {
+static const char * const policy_options[] = {
 	"ReconnectUUIDs",
 	"ReconnectAttempts",
 	"ReconnectIntervals",
@@ -137,7 +137,7 @@ static const char *policy_options[] = {
 	NULL
 };
 
-static const char *gatt_options[] = {
+static const char * const gatt_options[] = {
 	"Cache",
 	"KeySize",
 	"ExchangeMTU",
@@ -146,8 +146,8 @@ static const char *gatt_options[] = {
 };
 
 static const struct group_table {
-	const char *name;
-	const char **options;
+	const char * const name;
+	const char * const * const options;
 } valid_groups[] = {
 	{ "General",	supported_options },
 	{ "Controller", controller_options },
@@ -243,7 +243,7 @@ static enum jw_repairing_t parse_jw_repairing(const char *jw_repairing)
 
 
 static void check_options(GKeyFile *config, const char *group,
-						const char **options)
+					const char * const * const options)
 {
 	char **keys;
 	int i;
