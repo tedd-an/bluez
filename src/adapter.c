@@ -120,6 +120,8 @@ static bool kernel_conn_control = false;
 
 static bool kernel_blocked_keys_supported = false;
 
+static bool kernel_set_system_params = false;
+
 static GList *adapter_list = NULL;
 static unsigned int adapter_remaining = 0;
 static bool powering_down = false;
@@ -4155,6 +4157,250 @@ static void probe_devices(void *user_data)
 	struct btd_device *device = user_data;
 
 	device_probe_profiles(device, btd_device_get_uuids(device));
+}
+
+static void load_default_system_params(struct btd_adapter *adapter)
+{
+	/* note: for now all params are 2 bytes, if varying size params are
+	 * added, calculating the right size of buffer will be necessary first.
+	 */
+	struct controller_params_tlv {
+		uint16_t parameter_type;
+		uint8_t length;
+		uint16_t value;
+	} __packed;
+
+	struct controller_params_tlv *params = NULL;
+	uint16_t i = 0;
+	size_t cp_size;
+
+	if (!main_opts.default_params.num_set_params ||
+		!kernel_set_system_params)
+		return;
+
+	cp_size = sizeof(struct controller_params_tlv) *
+				main_opts.default_params.num_set_params;
+	params = g_try_malloc0(cp_size);
+	if (!params)
+		return;
+
+	if (main_opts.default_params.br_page_scan_type != 0xFFFF) {
+		params[i].parameter_type = 0x0000;
+		params[i].length = sizeof(params[i].value);
+		params[i].value = main_opts.default_params.br_page_scan_type;
+		++i;
+	}
+
+	if (main_opts.default_params.br_page_scan_interval) {
+		params[i].parameter_type = 0x0001;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+				main_opts.default_params.br_page_scan_interval;
+		++i;
+	}
+
+	if (main_opts.default_params.br_page_scan_window) {
+		params[i].parameter_type = 0x0002;
+		params[i].length = sizeof(params[i].value);
+		params[i].value = main_opts.default_params.br_page_scan_window;
+		++i;
+	}
+
+	if (main_opts.default_params.br_inquiry_scan_type != 0xFFFF) {
+		params[i].parameter_type = 0x0003;
+		params[i].length = sizeof(params[i].value);
+		params[i].value = main_opts.default_params.br_inquiry_scan_type;
+		++i;
+	}
+
+	if (main_opts.default_params.br_inquiry_scan_interval) {
+		params[i].parameter_type = 0x0004;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.br_inquiry_scan_interval;
+		++i;
+	}
+
+	if (main_opts.default_params.br_inquiry_scan_window) {
+		params[i].parameter_type = 0x0005;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+				main_opts.default_params.br_inquiry_scan_window;
+		++i;
+	}
+
+	if (main_opts.default_params.br_link_supervision_timeout) {
+		params[i].parameter_type = 0x0006;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.br_link_supervision_timeout;
+		++i;
+	}
+
+	if (main_opts.default_params.br_page_timeout) {
+		params[i].parameter_type = 0x0007;
+		params[i].length = sizeof(params[i].value);
+		params[i].value = main_opts.default_params.br_page_timeout;
+		++i;
+	}
+
+	if (main_opts.default_params.br_min_sniff_interval) {
+		params[i].parameter_type = 0x0008;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+				main_opts.default_params.br_min_sniff_interval;
+		++i;
+	}
+
+	if (main_opts.default_params.br_max_sniff_interval) {
+		params[i].parameter_type = 0x0009;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+				main_opts.default_params.br_max_sniff_interval;
+		++i;
+	}
+
+	if (main_opts.default_params.le_min_adv_interval) {
+		params[i].parameter_type = 0x000a;
+		params[i].length = sizeof(params[i].value);
+		params[i].value = main_opts.default_params.le_min_adv_interval;
+		++i;
+	}
+
+	if (main_opts.default_params.le_max_adv_interval) {
+		params[i].parameter_type = 0x000b;
+		params[i].length = sizeof(params[i].value);
+		params[i].value = main_opts.default_params.le_max_adv_interval;
+		++i;
+	}
+
+	if (main_opts.default_params.le_multi_adv_rotation_interval) {
+		params[i].parameter_type = 0x000c;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.le_multi_adv_rotation_interval;
+		++i;
+	}
+
+	if (main_opts.default_params.le_scan_interval_autoconnect) {
+		params[i].parameter_type = 0x000d;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.le_scan_interval_autoconnect;
+		++i;
+	}
+
+	if (main_opts.default_params.le_scan_window_autoconnect) {
+		params[i].parameter_type = 0x000e;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.le_scan_window_autoconnect;
+		++i;
+	}
+
+	if (main_opts.default_params.le_scan_interval_suspend) {
+		params[i].parameter_type = 0x000f;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.le_scan_interval_suspend;
+		++i;
+	}
+
+	if (main_opts.default_params.le_scan_window_suspend) {
+		params[i].parameter_type = 0x0010;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.le_scan_window_suspend;
+		++i;
+	}
+
+	if (main_opts.default_params.le_scan_interval_discovery) {
+		params[i].parameter_type = 0x0011;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.le_scan_interval_discovery;
+		++i;
+	}
+
+	if (main_opts.default_params.le_scan_window_discovery) {
+		params[i].parameter_type = 0x0012;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.le_scan_window_discovery;
+		++i;
+	}
+
+	if (main_opts.default_params.le_scan_interval_adv_monitor) {
+		params[i].parameter_type = 0x0013;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.le_scan_interval_adv_monitor;
+		++i;
+	}
+
+	if (main_opts.default_params.le_scan_window_adv_monitor) {
+		params[i].parameter_type = 0x0014;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.le_scan_window_adv_monitor;
+		++i;
+	}
+
+	if (main_opts.default_params.le_scan_interval_connect) {
+		params[i].parameter_type = 0x0015;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.le_scan_interval_connect;
+		++i;
+	}
+
+	if (main_opts.default_params.le_scan_window_connect) {
+		params[i].parameter_type = 0x0016;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+				main_opts.default_params.le_scan_window_connect;
+		++i;
+	}
+
+	if (main_opts.default_params.le_min_connection_interval) {
+		params[i].parameter_type = 0x0017;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.le_min_connection_interval;
+		++i;
+	}
+
+	if (main_opts.default_params.le_max_connection_interval) {
+		params[i].parameter_type = 0x0018;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.le_max_connection_interval;
+		++i;
+	}
+
+	if (main_opts.default_params.le_connection_latency) {
+		params[i].parameter_type = 0x0019;
+		params[i].length = sizeof(params[i].value);
+		params[i].value =
+			main_opts.default_params.le_connection_latency;
+		++i;
+	}
+
+	if (main_opts.default_params.le_connection_lsto) {
+		params[i].parameter_type = 0x001a;
+		params[i].length = sizeof(params[i].value);
+		params[i].value = main_opts.default_params.le_connection_lsto;
+		++i;
+	}
+
+	mgmt_send(adapter->mgmt, MGMT_OP_SET_DEFAULT_SYSTEM_PARAMETERS,
+			adapter->dev_id, cp_size, params, NULL, NULL, NULL);
+
+	btd_error(adapter->dev_id,
+				"Failed to set default system params for hci%u",
+				adapter->dev_id);
+
+	g_free(params);
 }
 
 static void load_devices(struct btd_adapter *adapter)
@@ -8265,6 +8511,7 @@ load:
 	load_drivers(adapter);
 	btd_profile_foreach(probe_profile, adapter);
 	clear_blocked(adapter);
+	load_default_system_params(adapter);
 	load_devices(adapter);
 
 	/* restore Service Changed CCC value for bonded devices */
@@ -9157,6 +9404,10 @@ static void read_commands_complete(uint8_t status, uint16_t length,
 		case MGMT_OP_SET_BLOCKED_KEYS:
 			DBG("kernel supports the set_blocked_keys op");
 			kernel_blocked_keys_supported = true;
+			break;
+		case MGMT_OP_SET_DEFAULT_SYSTEM_PARAMETERS:
+			DBG("kernel supports set system params");
+			kernel_set_system_params = true;
 			break;
 		default:
 			break;
