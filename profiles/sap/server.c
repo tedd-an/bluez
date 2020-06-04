@@ -1353,9 +1353,14 @@ int sap_server_register(struct btd_adapter *adapter)
 	GIOChannel *io;
 	struct sap_server *server;
 
+	if (!(g_dbus_get_flags() & G_DBUS_FLAG_ENABLE_EXPERIMENTAL)) {
+		error("Sap driver is disabled without --experimental option");
+		return -EOPNOTSUPP;
+	}
+
 	if (sap_init() < 0) {
 		error("Sap driver initialization failed.");
-		return -1;
+		return -EOPNOTSUPP;
 	}
 
 	record = create_sap_record(SAP_SERVER_CHANNEL);
