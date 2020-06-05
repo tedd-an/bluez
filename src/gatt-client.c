@@ -2009,9 +2009,6 @@ static void export_service(struct gatt_db_attribute *attr, void *user_data)
 	struct btd_gatt_client *client = user_data;
 	struct service *service;
 
-	if (gatt_db_service_get_claimed(attr))
-		return;
-
 	service = service_create(attr, client);
 	if (!service)
 		return;
