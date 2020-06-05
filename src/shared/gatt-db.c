@@ -344,10 +344,15 @@ static bool db_hash_update(void *user_data)
 	gatt_db_foreach_service(db, NULL, service_gen_hash_m, &hash);
 	bt_crypto_gatt_hash(db->crypto, hash.iov, db->next_handle, db->hash);
 
-	for (i = 0; i < hash.i; i++)
-		free(hash.iov[i].iov_base);
+	for (i = 0; i < hash.i; i++) {
+		if(hash.iov[i].iov_base)
+			free(hash.iov[i].iov_base);
+	}
 
-	free(hash.iov);
+	if(hash.iov)
+		free(hash.iov);
+
+	hash.iov = NULL;
 
 	return false;
 }
@@ -697,7 +702,7 @@ struct gatt_db_attribute *gatt_db_insert_service(struct gatt_db *db,
 	service->num_handles = num_handles;
 
 	/* Fast-forward next_handle if the new service was added to the end */
-	db->next_handle = MAX(handle + num_handles, db->next_handle);
+	db->next_handle += num_handles;
 
 	return service->attributes[0];
 
@@ -819,8 +824,6 @@ service_insert_characteristic(struct gatt_db_service *service,
 	 * declaration. All characteristic definitions shall have a
 	 * Characteristic Value declaration.
 	 */
-	if (handle == UINT16_MAX)
-		return NULL;
 
 	i = get_attribute_index(service, 1);
 	if (!i)

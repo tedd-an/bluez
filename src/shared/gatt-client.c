@@ -1131,8 +1131,6 @@ static void discover_secondary_cb(bool success, uint8_t att_ecode,
 				success = false;
 				goto done;
 			}
-			/* Database has changed adjust last handle */
-			op->last = end;
 		}
 
 		/* Update pending list */
@@ -1392,9 +1390,13 @@ static void db_hash_read_cb(bool success, uint8_t att_ecode,
 	util_hexdump(' ', value, len, client->debug_callback,
 						client->debug_data);
 
-	/* Store ithe new hash in the db */
-	gatt_db_attribute_write(op->hash, 0, value, len, 0, NULL,
-					db_hash_write_value_cb, client);
+	/* Store the new hash in the db */
+	if(gatt_db_attribute_write(op->hash, 0, value, len, 0, NULL,
+						db_hash_write_value_cb, client)) {
+		util_debug(client->debug_callback, client->debug_data,"DB Hash match write: skipping discovery");
+		queue_remove_all(op->pending_svcs, NULL, NULL, NULL);
+	}
+
 
 discover:
 	if (!op->success) {
