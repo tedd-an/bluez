@@ -1652,6 +1652,9 @@ fail:
 		reply = btd_error_busy(client->msg);
 		g_dbus_send_message(dbus_conn, reply);
 		g_dbus_remove_watch(dbus_conn, client->watch);
+		client->watch = 0;
+		dbus_message_unref(client->msg);
+		client->msg = NULL;
 		discovery_remove(client, false);
 		return;
 	}
@@ -1926,6 +1929,8 @@ static void stop_discovery_complete(uint8_t status, uint16_t length,
 		if (client->msg) {
 			reply = btd_error_busy(client->msg);
 			g_dbus_send_message(dbus_conn, reply);
+			dbus_message_unref(client->msg);
+			client->msg = NULL;
 		}
 		goto done;
 	}
