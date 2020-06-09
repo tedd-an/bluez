@@ -41,6 +41,7 @@ struct send_info {
 	struct l_dbus *dbus;
 	struct l_timeout *timeout;
 	l_dbus_message_func_t cb;
+	l_dbus_destroy_func_t destroy_cb;
 	void *user_data;
 	uint32_t serial;
 };
@@ -153,12 +154,14 @@ void dbus_append_dict_entry_basic(struct l_dbus_message_builder *builder,
 	l_dbus_message_builder_leave_dict(builder);
 }
 
-static void send_reply(struct l_dbus_message *message, void *user_data)
+static void send_reply_cb(struct l_dbus_message *message, void *user_data)
 {
 	struct send_info *info = user_data;
 
 	l_timeout_remove(info->timeout);
 	info->cb(message, info->user_data);
+	if (info->destroy_cb)
+		info->destroy_cb(info->user_data);
 	l_free(info);
 }
 
@@ -167,12 +170,13 @@ static void send_timeout(struct l_timeout *timeout, void *user_data)
 	struct send_info *info = user_data;
 
 	l_dbus_cancel(info->dbus, info->serial);
-	send_reply(NULL, info);
+	send_reply_cb(NULL, info);
 }
 
 void dbus_send_with_timeout(struct l_dbus *dbus, struct l_dbus_message *msg,
 						l_dbus_message_func_t cb,
 						void *user_data,
+						l_dbus_destroy_func_t destroy,
 						unsigned int seconds)
 {
 	struct send_info *info = l_new(struct send_info, 1);
@@ -180,7 +184,8 @@ void dbus_send_with_timeout(struct l_dbus *dbus, struct l_dbus_message *msg,
 	info->dbus = dbus;
 	info->cb = cb;
 	info->user_data = user_data;
-	info->serial = l_dbus_send_with_reply(dbus, msg, send_reply,
+	info->destroy_cb = destroy;
+	info->serial = l_dbus_send_with_reply(dbus, msg, send_reply_cb,
 								info, NULL);
 	info->timeout = l_timeout_create(seconds, send_timeout, info, NULL);
 }
