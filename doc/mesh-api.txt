@@ -126,6 +126,8 @@ Methods:
 
 		PossibleErrors:
 			org.bluez.mesh.Error.InvalidArguments
+			org.bluez.mesh.Error.NotFound
+			org.bluez.mesh.Error.Busy
 
 	void CreateNetwork(object app_root, array{byte}[16] uuid)
 

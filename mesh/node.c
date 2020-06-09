@@ -88,6 +88,7 @@ struct mesh_node {
 	char *storage_dir;
 	uint32_t disc_watch;
 	uint32_t seq_number;
+	bool busy;
 	bool provisioner;
 	uint16_t primary;
 	struct node_composition comp;
@@ -344,16 +345,21 @@ static void free_node_resources(void *data)
  * This function is called to free resources and remove the
  * configuration files for the specified node.
  */
-void node_remove(struct mesh_node *node)
+int node_remove(struct mesh_node *node)
 {
 	if (!node)
-		return;
+		return MESH_ERROR_NOT_FOUND;
+
+	if (node->busy)
+		return MESH_ERROR_BUSY;
 
 	l_queue_remove(nodes, node);
 
 	mesh_config_destroy_nvm(node->cfg);
 
 	free_node_resources(node);
+
+	return MESH_ERROR_NONE;
 }
 
 static bool add_models_from_storage(struct mesh_node *node,
@@ -1357,6 +1363,8 @@ static bool add_local_node(struct mesh_node *node, uint16_t unicast, bool kr,
 	/* Initialize configuration server model */
 	cfgmod_server_init(node, PRIMARY_ELE_IDX);
 
+	node->busy = true;
+
 	return true;
 }
 
@@ -1463,6 +1471,9 @@ static void get_managed_objects_cb(struct l_dbus_message *msg, void *user_data)
 	unsigned int num_ele;
 	struct keyring_net_key net_key;
 	uint8_t dev_key[16];
+
+	if (req->type == REQUEST_TYPE_ATTACH)
+		req->attach->busy = false;
 
 	if (!msg || l_dbus_message_is_error(msg)) {
 		l_error("Failed to get app's dbus objects");
@@ -1678,6 +1689,8 @@ void node_attach(const char *app_root, const char *sender, uint64_t token,
 	req->pending_msg = user_data;
 	req->attach = node;
 	req->type = REQUEST_TYPE_ATTACH;
+
+	node->busy = true;
 
 	send_managed_objects_request(sender, app_root, req);
 }
@@ -2351,6 +2364,8 @@ void node_finalize_new_node(struct mesh_node *node, struct mesh_io *io)
 
 	free_node_dbus_resources(node);
 	mesh_agent_remove(node->agent);
+
+	node->busy = false;
 
 	/* Register callback for the node's io */
 	attach_io(node, io);
