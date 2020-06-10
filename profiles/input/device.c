@@ -88,6 +88,7 @@ struct input_device {
 	uint8_t			report_req_pending;
 	guint			report_req_timer;
 	uint32_t		report_rsp_id;
+	bool			unbond_on_disconnect;
 };
 
 static int idle_timeout = 0;
@@ -148,6 +149,14 @@ static void input_device_free(struct input_device *idev)
 	g_free(idev);
 }
 
+static void invalidate_bonding(struct input_device *idev)
+{
+	device_remove_bonding(device_get_adapter(idev->device),
+				btd_device_get_bdaddr_type(idev->device));
+
+	idev->unbond_on_disconnect = false;
+}
+
 static bool hidp_send_message(GIOChannel *chan, uint8_t hdr,
 					const uint8_t *data, size_t size)
 {
@@ -188,6 +197,9 @@ static bool hidp_send_message(GIOChannel *chan, uint8_t hdr,
 static bool hidp_send_ctrl_message(struct input_device *idev, uint8_t hdr,
 					const uint8_t *data, size_t size)
 {
+	if (hdr == (HIDP_TRANS_HID_CONTROL | HIDP_CTRL_VIRTUAL_CABLE_UNPLUG))
+		idev->unbond_on_disconnect = true;
+
 	return hidp_send_message(idev->ctrl_io, hdr, data, size);
 }
 
@@ -342,6 +354,9 @@ static gboolean intr_watch_cb(GIOChannel *chan, GIOCondition cond, gpointer data
 	/* Enter the auto-reconnect mode if needed */
 	input_device_enter_reconnect_mode(idev);
 
+	if (!idev->ctrl_io && idev->unbond_on_disconnect)
+		invalidate_bonding(idev);
+
 	return FALSE;
 }
 
@@ -406,7 +421,7 @@ static void hidp_recv_ctrl_hid_control(struct input_device *idev, uint8_t param)
 	DBG("");
 
 	if (param == HIDP_CTRL_VIRTUAL_CABLE_UNPLUG)
-		connection_disconnect(idev, 0);
+		connection_disconnect(idev, (1 << HIDP_VIRTUAL_CABLE_UNPLUG));
 }
 
 static void hidp_recv_ctrl_data(struct input_device *idev, uint8_t param,
@@ -529,6 +544,9 @@ static gboolean ctrl_watch_cb(GIOChannel *chan, GIOCondition cond, gpointer data
 	/* Close interrupt channel */
 	if (idev->intr_io && !(cond & G_IO_NVAL))
 		g_io_channel_shutdown(idev->intr_io, TRUE, NULL);
+
+	if (!idev->intr_io && idev->unbond_on_disconnect)
+		invalidate_bonding(idev);
 
 	return FALSE;
 }
@@ -1034,6 +1052,9 @@ static int connection_disconnect(struct input_device *idev, uint32_t flags)
 		g_io_channel_shutdown(idev->intr_io, TRUE, NULL);
 	if (idev->ctrl_io)
 		g_io_channel_shutdown(idev->ctrl_io, TRUE, NULL);
+
+	if (flags & (1 << HIDP_VIRTUAL_CABLE_UNPLUG))
+		idev->unbond_on_disconnect = true;
 
 	if (idev->uhid)
 		return 0;
