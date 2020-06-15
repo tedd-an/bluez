@@ -422,11 +422,21 @@ Properties:
 		This property indicates whether the periodic beaconing is
 		enabled (true) or disabled (false).
 
-	uint8 BeaconFlags [read-only]
+	dict BeaconFlags [read-only]
 
-		This property may be read at any time to determine the flag
-		field setting on sent and received beacons of the primary
-		network key.
+		This property may be read at any time to determine the flags
+		used in network beacons of the primary network key. Supported
+		values are:
+
+			boolean IvUpdate
+
+				When true, indicates that the network is in the
+				middle of IV Index Update procedure.
+
+			boolean KeyRefresh
+
+				When true, indicates that the network is in the
+				middle of a key refresh procedure.
 
 	uint32 IvIndex [read-only]
 

@@ -32,6 +32,7 @@
 #include "mesh/mesh-defs.h"
 #include "mesh/mesh.h"
 #include "mesh/net.h"
+#include "mesh/net-keys.h"
 #include "mesh/appkey.h"
 #include "mesh/mesh-config.h"
 #include "mesh/provision.h"
@@ -2160,10 +2161,18 @@ static bool beaconflags_getter(struct l_dbus *dbus, struct l_dbus_message *msg,
 	struct mesh_net *net = node_get_net(node);
 	uint8_t flags;
 	uint32_t iv_index;
+	bool ivu;
+	bool kr;
 
 	mesh_net_get_snb_state(net, &flags, &iv_index);
 
-	l_dbus_message_builder_append_basic(builder, 'y', &flags);
+	ivu = flags & IV_INDEX_UPDATE;
+	kr = flags & KEY_REFRESH;
+
+	l_dbus_message_builder_enter_array(builder, "{sv}");
+	dbus_append_dict_entry_basic(builder, "IvUpdate", "b", &ivu);
+	dbus_append_dict_entry_basic(builder, "KeyRefresh", "b", &kr);
+	l_dbus_message_builder_leave_array(builder);
 
 	return true;
 }
@@ -2262,7 +2271,7 @@ static void setup_node_interface(struct l_dbus_interface *iface)
 	l_dbus_interface_property(iface, "Features", 0, "a{sv}", features_getter,
 									NULL);
 	l_dbus_interface_property(iface, "Beacon", 0, "b", beacon_getter, NULL);
-	l_dbus_interface_property(iface, "BeaconFlags", 0, "y",
+	l_dbus_interface_property(iface, "BeaconFlags", 0, "a{sv}",
 						beaconflags_getter, NULL);
 	l_dbus_interface_property(iface, "IvIndex", 0, "u", ivindex_getter,
 									NULL);
