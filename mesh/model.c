@@ -51,6 +51,8 @@ struct mesh_model {
 	struct l_queue *subs;
 	struct l_queue *virtuals;
 	struct mesh_model_pub *pub;
+	bool sub_disabled;
+	bool pub_disabled;
 	uint32_t id;
 	uint8_t ele_idx;
 };
@@ -1097,7 +1099,7 @@ int mesh_model_pub_set(struct mesh_node *node, uint16_t addr, uint32_t id,
 	if (!mod)
 		return status;
 
-	if (id == CONFIG_SRV_MODEL || id == CONFIG_CLI_MODEL)
+	if (mod->pub_disabled || (mod->cbs && !(mod->cbs->pub)))
 		return MESH_STATUS_INVALID_PUB_PARAM;
 
 	if (!appkey_have_key(node_get_net(node), idx))
@@ -1134,9 +1136,12 @@ int mesh_model_pub_set(struct mesh_node *node, uint16_t addr, uint32_t id,
 		/* External model */
 		config_update_model_pub_period(node, mod->ele_idx, id,
 						pub_period_to_ms(period));
-	else
+	else {
 		/* Internal model, call registered callbacks */
-		mod->cbs->pub(mod->pub);
+		if (mod->cbs->pub)
+			mod->cbs->pub(mod->pub);
+		return MESH_STATUS_INVALID_PUB_PARAM;
+	}
 
 	return MESH_STATUS_SUCCESS;
 }
@@ -1318,6 +1323,9 @@ int mesh_model_sub_get(struct mesh_node *node, uint16_t addr, uint32_t id,
 	if (!mod)
 		return status;
 
+	if (mod->sub_disabled || (mod->cbs && !(mod->cbs->sub)))
+		return MESH_STATUS_NOT_SUB_MOD;
+
 	entry = l_queue_get_entries(mod->subs);
 	*size = 0;
 	n = 0;
@@ -1358,6 +1366,9 @@ int mesh_model_sub_add(struct mesh_node *node, uint16_t addr, uint32_t id,
 	if (!mod)
 		return status;
 
+	if (mod->sub_disabled || (mod->cbs && !(mod->cbs->sub)))
+		return MESH_STATUS_NOT_SUB_MOD;
+
 	status = add_sub(node_get_net(node), mod, group, is_virt, dst);
 
 	if (status != MESH_STATUS_SUCCESS)
@@ -1380,6 +1391,9 @@ int mesh_model_sub_ovr(struct mesh_node *node, uint16_t addr, uint32_t id,
 	mod = find_model(node, addr, id, &status);
 	if (!mod)
 		return status;
+
+	if (mod->sub_disabled || (mod->cbs && !(mod->cbs->sub)))
+		return MESH_STATUS_NOT_SUB_MOD;
 
 	subs = mod->subs;
 	virtuals = mod->virtuals;
@@ -1430,6 +1444,9 @@ int mesh_model_sub_del(struct mesh_node *node, uint16_t addr, uint32_t id,
 	if (!mod)
 		return status;
 
+	if (mod->sub_disabled || (mod->cbs && !(mod->cbs->sub)))
+		return MESH_STATUS_NOT_SUB_MOD;
+
 	if (is_virt) {
 		struct mesh_virtual *virt;
 
@@ -1448,26 +1465,21 @@ int mesh_model_sub_del(struct mesh_node *node, uint16_t addr, uint32_t id,
 
 	*dst = grp;
 
-	if (l_queue_remove(mod->subs, L_UINT_TO_PTR(grp)))
+	if (l_queue_remove(mod->subs, L_UINT_TO_PTR(grp))) {
 		mesh_net_dst_unreg(node_get_net(node), grp);
 
-	if (!mod->cbs)
-		/* External models */
-		config_update_model_subscriptions(node, mod);
+		if (!mod->cbs)
+			/* External models */
+			config_update_model_subscriptions(node, mod);
+	}
 
 	return MESH_STATUS_SUCCESS;
 }
 
-int mesh_model_sub_del_all(struct mesh_node *node, uint16_t addr, uint32_t id)
+static void remove_subs(struct mesh_node *node, struct mesh_model *mod)
 {
-	int status;
-	struct mesh_model *mod;
 	const struct l_queue_entry *entry;
 	struct mesh_net *net = node_get_net(node);
-
-	mod = find_model(node, addr, id, &status);
-	if (!mod)
-		return status;
 
 	entry = l_queue_get_entries(mod->subs);
 
@@ -1476,6 +1488,21 @@ int mesh_model_sub_del_all(struct mesh_node *node, uint16_t addr, uint32_t id)
 
 	l_queue_clear(mod->subs, NULL);
 	l_queue_clear(mod->virtuals, unref_virt);
+}
+
+int mesh_model_sub_del_all(struct mesh_node *node, uint16_t addr, uint32_t id)
+{
+	int status;
+	struct mesh_model *mod;
+
+	mod = find_model(node, addr, id, &status);
+	if (!mod)
+		return status;
+
+	if (mod->sub_disabled || (mod->cbs && !(mod->cbs->sub)))
+		return MESH_STATUS_NOT_SUB_MOD;
+
+	remove_subs(node, mod);
 
 	if (!mod->cbs)
 		/* External models */
@@ -1675,6 +1702,38 @@ void model_build_config(void *model, void *msg_builder)
 
 	l_dbus_message_builder_leave_array(builder);
 	l_dbus_message_builder_leave_struct(builder);
+}
+
+void mesh_model_enable_pub(struct mesh_model *mod, bool enable)
+{
+	mod->pub_disabled = !enable;
+
+	if (mod->pub_disabled && mod->pub) {
+		if (mod->pub->virt)
+			unref_virt(mod->pub->virt);
+
+		l_free(mod->pub);
+		mod->pub = NULL;
+	}
+}
+
+bool mesh_model_is_pub_enabled(struct mesh_model *mod)
+{
+	return !mod->pub_disabled;
+}
+
+void mesh_model_enable_sub(struct mesh_node *node, struct mesh_model *mod,
+								bool enable)
+{
+	mod->sub_disabled = !enable;
+
+	if (mod->sub_disabled)
+		remove_subs(node, mod);
+}
+
+bool mesh_model_is_sub_enabled(struct mesh_model *mod)
+{
+	return !mod->sub_disabled;
 }
 
 void mesh_model_init(void)

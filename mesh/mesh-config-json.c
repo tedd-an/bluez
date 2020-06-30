@@ -1096,6 +1096,12 @@ static bool parse_models(json_object *jmodels, struct mesh_config_element *ele)
 				goto fail;
 		}
 
+		if (json_object_object_get_ex(jmodel, "pubDisabled", &jvalue))
+			mod->pub_disabled = json_object_get_boolean(jvalue);
+
+		if (json_object_object_get_ex(jmodel, "subDisabled", &jvalue))
+			mod->sub_disabled = json_object_get_boolean(jvalue);
+
 		if (json_object_object_get_ex(jmodel, "publish", &jvalue)) {
 			mod->pub = parse_model_publication(jvalue);
 			if (!mod->pub)
@@ -1562,7 +1568,7 @@ bool mesh_config_write_iv_index(struct mesh_config *cfg, uint32_t idx,
 static void add_model(void *a, void *b)
 {
 	struct mesh_config_model *mod = a;
-	json_object *jmodels = b, *jmodel;
+	json_object *jmodels = b, *jmodel, *jval;
 
 	jmodel = json_object_new_object();
 	if (!jmodel)
@@ -1573,6 +1579,12 @@ static void add_model(void *a, void *b)
 						(uint16_t) mod->id);
 	else
 		write_uint32_hex(jmodel, "modelId", mod->id);
+
+	jval = json_object_new_boolean(mod->sub_disabled);
+	json_object_object_add(jmodel, "subDisabled", jval);
+
+	jval = json_object_new_boolean(mod->pub_disabled);
+	json_object_object_add(jmodel, "pubDisabled", jval);
 
 	json_object_array_add(jmodels, jmodel);
 }
@@ -1970,6 +1982,64 @@ bool mesh_config_model_sub_del_all(struct mesh_config *cfg, uint16_t addr,
 	if (!cfg || !delete_model_property(cfg->jnode, addr, mod_id, vendor,
 								"subscribe"))
 		return false;
+
+	return save_config(cfg->jnode, cfg->node_dir_path);
+}
+
+bool mesh_config_model_pub_enable(struct mesh_config *cfg, uint16_t ele_addr,
+						uint32_t mod_id, bool vendor,
+						bool enable)
+{
+	json_object *jmodel, *jval;
+	int ele_idx;
+
+	if (!cfg)
+		return false;
+
+	ele_idx = get_element_index(cfg->jnode, ele_addr);
+	if (ele_idx < 0)
+		return false;
+
+	jmodel = get_element_model(cfg->jnode, ele_idx, mod_id, vendor);
+	if (!jmodel)
+		return false;
+
+	json_object_object_del(jmodel, "pubDisabled");
+
+	jval = json_object_new_boolean(!enable);
+	json_object_object_add(jmodel, "pubDisabled", jval);
+
+	if (!enable)
+		json_object_object_del(jmodel, "publish");
+
+	return save_config(cfg->jnode, cfg->node_dir_path);
+}
+
+bool mesh_config_model_sub_enable(struct mesh_config *cfg, uint16_t ele_addr,
+						uint32_t mod_id, bool vendor,
+						bool enable)
+{
+	json_object *jmodel, *jval;
+	int ele_idx;
+
+	if (!cfg)
+		return false;
+
+	ele_idx = get_element_index(cfg->jnode, ele_addr);
+	if (ele_idx < 0)
+		return false;
+
+	jmodel = get_element_model(cfg->jnode, ele_idx, mod_id, vendor);
+	if (!jmodel)
+		return false;
+
+	json_object_object_del(jmodel, "subDisabled");
+
+	jval = json_object_new_boolean(!enable);
+	json_object_object_add(jmodel, "subDisabled", jval);
+
+	if (!enable)
+		json_object_object_del(jmodel, "subscribe");
 
 	return save_config(cfg->jnode, cfg->node_dir_path);
 }
