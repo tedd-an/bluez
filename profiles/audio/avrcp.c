@@ -369,6 +369,7 @@ static uint32_t company_ids[] = {
 };
 
 static void avrcp_register_notification(struct avrcp *session, uint8_t event);
+static GList *player_list_settings(struct avrcp_player *player);
 
 static sdp_record_t *avrcp_ct_record(void)
 {
@@ -743,6 +744,35 @@ static int play_status_to_val(const char *status)
 	return -EINVAL;
 }
 
+static uint16_t player_settings_changed(struct avrcp_player *player,
+						struct avrcp_header *pdu)
+{
+	GList *settings = player_list_settings(player);
+	int size = 2;
+
+	for (; settings; settings = settings->next) {
+		const char *key = settings->data;
+		int attr;
+		int val;
+
+		attr = attr_to_val(key);
+		if (attr < 0)
+			continue;
+
+		val = player_get_setting(player, attr);
+		if (val < 0)
+			continue;
+
+		pdu->params[size++] = attr;
+		pdu->params[size++] = val;
+	}
+
+	g_list_free(settings);
+
+	pdu->params[1] = (size - 2) >> 1;
+	return size;
+}
+
 void avrcp_player_event(struct avrcp_player *player, uint8_t id,
 							const void *data)
 {
@@ -751,6 +781,7 @@ void avrcp_player_event(struct avrcp_player *player, uint8_t id,
 	uint8_t code;
 	uint16_t size;
 	GSList *l;
+	GList *settings;
 	int attr;
 	int val;
 
@@ -791,19 +822,7 @@ void avrcp_player_event(struct avrcp_player *player, uint8_t id,
 		size = 1;
 		break;
 	case AVRCP_EVENT_SETTINGS_CHANGED:
-		size = 2;
-		pdu->params[1] = 1;
-
-		attr = attr_to_val(data);
-		if (attr < 0)
-			return;
-
-		val = player_get_setting(player, attr);
-		if (val < 0)
-			return;
-
-		pdu->params[size++] = attr;
-		pdu->params[size++] = val;
+		size = player_settings_changed(player, pdu);
 		break;
 	case AVRCP_EVENT_ADDRESSED_PLAYER_CHANGED:
 		size = 5;
@@ -1626,29 +1645,7 @@ static uint8_t avrcp_handle_register_notification(struct avrcp *session,
 		len = 1;
 		break;
 	case AVRCP_EVENT_SETTINGS_CHANGED:
-		len = 1;
-		settings = player_list_settings(player);
-
-		pdu->params[len++] = g_list_length(settings);
-		for (; settings; settings = settings->next) {
-			const char *key = settings->data;
-			int attr;
-			int val;
-
-			attr = attr_to_val(key);
-			if (attr < 0)
-				continue;
-
-			val = player_get_setting(player, attr);
-			if (val < 0)
-				continue;
-
-			pdu->params[len++] = attr;
-			pdu->params[len++] = val;
-		}
-
-		g_list_free(settings);
-
+		len = player_settings_changed(player, pdu);
 		break;
 	case AVRCP_EVENT_ADDRESSED_PLAYER_CHANGED:
 		len = 5;
