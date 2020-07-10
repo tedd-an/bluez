@@ -56,6 +56,7 @@
 #define MEDIA_TRANSPORT_INTERFACE "org.bluez.MediaTransport1"
 
 #define UNINITIALIZED_VOLUME_VALUE	128
+#define PEND_DEVICE_VOLUME_TIMEOUT	1
 
 typedef enum {
 	TRANSPORT_STATE_IDLE,		/* Not acquired and suspended */
@@ -116,7 +117,13 @@ struct media_transport {
 	void			*data;
 };
 
+struct pending_device_volume {
+	struct btd_device	*device;
+	uint8_t			volume;
+};
+
 static GSList *transports = NULL;
+static GSList *pending_device_volumes;
 
 static const char *state2str(transport_state_t state)
 {
@@ -810,6 +817,52 @@ static void source_state_changed(struct btd_service *service,
 		transport_update_playing(transport, FALSE);
 }
 
+static uint8_t get_pending_device_volume(struct btd_device *dev)
+{
+	GSList *l;
+
+	for (l = pending_device_volumes; l; l = l->next) {
+		struct pending_device_volume *pend = l->data;
+
+		if (pend->device == dev)
+			return pend->volume;
+	}
+
+	return UNINITIALIZED_VOLUME_VALUE;
+}
+
+static gboolean remove_pending_device_volume(gpointer user_data)
+{
+	struct pending_device_volume *pend = user_data;
+
+	pending_device_volumes = g_slist_remove(pending_device_volumes, pend);
+	g_free(pend);
+
+	return FALSE;
+}
+
+static void add_pending_device_volume(struct btd_device *dev, uint8_t volume)
+{
+	GSList *l;
+	struct pending_device_volume *pend;
+
+	for (l = pending_device_volumes; l; l = l->next) {
+		pend = l->data;
+
+		if (pend->device == dev) {
+			pend->volume = volume;
+			return;
+		}
+	}
+
+	pend = g_new0(struct pending_device_volume, 1);
+	pend->device = dev;
+	pend->volume = volume;
+	g_timeout_add_seconds(PEND_DEVICE_VOLUME_TIMEOUT,
+				remove_pending_device_volume, pend);
+	pending_device_volumes = g_slist_append(pending_device_volumes, pend);
+}
+
 static int media_transport_init_source(struct media_transport *transport)
 {
 	struct btd_service *service;
@@ -827,7 +880,7 @@ static int media_transport_init_source(struct media_transport *transport)
 	transport->data = a2dp;
 	transport->destroy = destroy_a2dp;
 
-	a2dp->volume = UNINITIALIZED_VOLUME_VALUE;
+	a2dp->volume = get_pending_device_volume(transport->device);
 	transport->sink_watch = sink_add_state_cb(service, sink_state_changed,
 								transport);
 
@@ -990,9 +1043,13 @@ void media_transport_update_device_volume(struct btd_device *dev,
 			continue;
 
 		/* Volume is A2DP only */
-		if (media_endpoint_get_sep(transport->endpoint))
+		if (media_endpoint_get_sep(transport->endpoint)) {
 			media_transport_update_volume(transport, volume);
+			return;
+		}
 	}
+
+	add_pending_device_volume(dev, volume);
 }
 
 bool media_transport_volume_valid(uint8_t volume)
