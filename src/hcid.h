@@ -114,6 +114,8 @@ struct main_opts {
 	uint8_t		key_size;
 
 	enum jw_repairing_t jw_repairing;
+
+	gboolean	default_allow_internal_profiles;
 };
 
 extern struct main_opts main_opts;

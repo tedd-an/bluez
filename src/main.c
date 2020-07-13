@@ -89,6 +89,7 @@ static const char *supported_options[] = {
 	"FastConnectable",
 	"Privacy",
 	"JustWorksRepairing",
+	"DefaultAllowInternalProfiles",
 	NULL
 };
 
@@ -615,6 +616,13 @@ static void parse_config(GKeyFile *config)
 	else
 		main_opts.fast_conn = boolean;
 
+	boolean = g_key_file_get_boolean(config, "General",
+					"DefaultAllowInternalProfiles", &err);
+	if (err)
+		g_clear_error(&err);
+	else
+		main_opts.default_allow_internal_profiles = boolean;
+
 	str = g_key_file_get_string(config, "GATT", "Cache", &err);
 	if (err) {
 		DBG("%s", err->message);
@@ -691,6 +699,8 @@ static void init_defaults(void)
 	main_opts.gatt_cache = BT_GATT_CACHE_ALWAYS;
 	main_opts.gatt_mtu = BT_ATT_MAX_LE_MTU;
 	main_opts.gatt_channels = 3;
+
+	main_opts.default_allow_internal_profiles = true;
 }
 
 static void log_handler(const gchar *log_domain, GLogLevelFlags log_level,

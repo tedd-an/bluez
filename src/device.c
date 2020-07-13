@@ -275,6 +275,7 @@ struct btd_device {
 	gboolean	auto_connect;
 	gboolean	disable_auto_connect;
 	gboolean	general_connect;
+	gboolean	allow_internal_profiles;
 
 	bool		legacy;
 	int8_t		rssi;
@@ -293,6 +294,10 @@ static const uint16_t uuid_list[] = {
 
 static int device_browse_gatt(struct btd_device *device, DBusMessage *msg);
 static int device_browse_sdp(struct btd_device *device, DBusMessage *msg);
+
+static void gatt_service_added(struct gatt_db_attribute *attr, void *user_data);
+static void gatt_service_removed(struct gatt_db_attribute *attr,
+					void *user_data);
 
 static struct bearer_state *get_state(struct btd_device *dev,
 							uint8_t bdaddr_type)
@@ -435,6 +440,9 @@ static gboolean store_device_info_cb(gpointer user_data)
 
 	g_key_file_set_boolean(key_file, "General", "Blocked",
 							device->blocked);
+
+	g_key_file_set_boolean(key_file, "General", "AllowInternalProfiles",
+				device->allow_internal_profiles);
 
 	if (device->wake_override != WAKE_FLAG_DEFAULT) {
 		g_key_file_set_boolean(key_file, "General", "WakeAllowed",
@@ -1468,6 +1476,71 @@ static gboolean dev_property_wake_allowed_exist(
 	return device_get_wake_support(device);
 }
 
+static gboolean
+dev_property_get_allow_internal_profiles(const GDBusPropertyTable *property,
+						DBusMessageIter *iter,
+						void *data)
+{
+	struct btd_device *device = data;
+	dbus_bool_t allow_internal_profiles = device->allow_internal_profiles;
+
+	dbus_message_iter_append_basic(iter, DBUS_TYPE_BOOLEAN,
+					&allow_internal_profiles);
+
+	return TRUE;
+}
+
+static void
+dev_property_set_allow_internal_profiles(const GDBusPropertyTable *property,
+						DBusMessageIter *value,
+						GDBusPendingPropertySet id,
+						void *data)
+{
+	struct btd_device *device = data;
+	dbus_bool_t b;
+
+	if (dbus_message_iter_get_arg_type(value) != DBUS_TYPE_BOOLEAN) {
+		g_dbus_pending_property_error(
+			id, ERROR_INTERFACE ".InvalidArguments",
+			"Invalid arguments in method call");
+		return;
+	}
+
+	if (device->le_state.connected || device->bredr_state.connected) {
+		g_dbus_pending_property_error(id, ERROR_INTERFACE ".Failed",
+					"Device is connected");
+		return;
+	}
+
+	dbus_message_iter_get_basic(value, &b);
+
+	device->allow_internal_profiles = b;
+
+	/* Remove GATT client cache */
+	gatt_db_unregister(device->db, device->db_id);
+	btd_gatt_client_destroy(device->client_dbus);
+	gatt_db_unref(device->db);
+
+	device->db = gatt_db_new();
+	device->client_dbus = btd_gatt_client_new(device);
+	device->db_id = gatt_db_register(device->db, gatt_service_added,
+			gatt_service_removed, device, NULL);
+
+	/* Re-probe all profiles */
+	while (device->services != NULL) {
+		struct btd_service *service = device->services->data;
+
+		device->services = g_slist_remove(device->services, service);
+		service_remove(service);
+	}
+
+	device_probe_profiles(device, device->uuids);
+
+	/* Update D-Bus property and reply client */
+	g_dbus_emit_property_changed(dbus_conn, device->path, DEVICE_INTERFACE,
+						"AllowInternalProfiles");
+	g_dbus_pending_property_success(id);
+}
 
 static gboolean disconnect_all(gpointer user_data)
 {
@@ -2944,6 +3017,9 @@ static const GDBusPropertyTable device_properties[] = {
 	{ "WakeAllowed", "b", dev_property_get_wake_allowed,
 				dev_property_set_wake_allowed,
 				dev_property_wake_allowed_exist },
+	{ "AllowInternalProfiles", "b",
+				dev_property_get_allow_internal_profiles,
+				dev_property_set_allow_internal_profiles },
 	{ }
 };
 
@@ -3196,6 +3272,7 @@ static void load_info(struct btd_device *device, const char *local,
 	char *str;
 	gboolean store_needed = FALSE;
 	gboolean blocked;
+	gboolean allow_internal_profiles;
 	gboolean wake_allowed;
 	char **uuids;
 	int source, vendor, product, version;
@@ -3282,6 +3359,20 @@ next:
 	blocked = g_key_file_get_boolean(key_file, "General", "Blocked", NULL);
 	if (blocked)
 		device_block(device, FALSE);
+
+	/* Load allow internal profiles */
+	allow_internal_profiles = g_key_file_get_boolean(
+		key_file, "General", "AllowInternalProfiles", &gerr);
+	if (!gerr) {
+		device->allow_internal_profiles = allow_internal_profiles;
+	} else {
+		/* Old config doesn't contain this item, so set it to true to
+		 * match the previous default behavior.
+		 */
+		device->allow_internal_profiles = true;
+		g_error_free(gerr);
+		gerr = NULL;
+	}
 
 	/* Load device profile list */
 	uuids = g_key_file_get_string_list(key_file, "General", "Services",
@@ -3782,6 +3873,9 @@ static bool device_match_profile(struct btd_device *device,
 							bt_uuid_strcmp) == NULL)
 		return false;
 
+	if (!device->allow_internal_profiles && !profile->external)
+		return false;
+
 	return true;
 }
 
@@ -4055,6 +4149,8 @@ static struct btd_device *device_new(struct btd_adapter *adapter,
 
 	device->adapter = adapter;
 	device->temporary = true;
+	device->allow_internal_profiles =
+		main_opts.default_allow_internal_profiles;
 
 	device->db_id = gatt_db_register(device->db, gatt_service_added,
 					gatt_service_removed, device, NULL);
