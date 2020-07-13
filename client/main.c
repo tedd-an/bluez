@@ -1678,6 +1678,7 @@ static void cmd_info(int argc, char *argv[])
 	print_property(proxy, "Connected");
 	print_property(proxy, "WakeAllowed");
 	print_property(proxy, "LegacyPairing");
+	print_property(proxy, "AllowInternalProfiles");
 	print_uuids(proxy);
 	print_property(proxy, "Modalias");
 	print_property(proxy, "ManufacturerData");
@@ -1831,6 +1832,39 @@ static void cmd_unblock(int argc, char *argv[])
 	if (g_dbus_proxy_set_property_basic(proxy, "Blocked",
 					DBUS_TYPE_BOOLEAN, &blocked,
 					generic_callback, str, g_free) == TRUE)
+		return;
+
+	g_free(str);
+
+	return bt_shell_noninteractive_quit(EXIT_FAILURE);
+}
+
+static void cmd_set_allow_internal_profiles(int argc, char *argv[])
+{
+	GDBusProxy *proxy;
+	dbus_bool_t allow_internal_profiles;
+	char *str;
+
+	proxy = find_device(argc, argv);
+	if (!proxy)
+		return bt_shell_noninteractive_quit(EXIT_FAILURE);
+
+	if (strcmp(argv[2], "true") != 0 && strcmp(argv[2], "false") != 0) {
+		bt_shell_printf("Invalid argument: %s\n", argv[2]);
+		return bt_shell_noninteractive_quit(EXIT_FAILURE);
+	}
+
+	allow_internal_profiles = strcmp(argv[2], "true") == 0 ? true : false;
+
+	str = g_strdup_printf("%s allow internal profiles",
+				proxy_address(proxy));
+
+	if (g_dbus_proxy_set_property_basic(proxy, "AllowInternalProfiles",
+						DBUS_TYPE_BOOLEAN,
+						&allow_internal_profiles,
+						generic_callback,
+						str,
+						g_free) == TRUE)
 		return;
 
 	g_free(str);
@@ -2824,6 +2858,10 @@ static const struct bt_shell_menu main_menu = {
 								dev_generator },
 	{ "unblock",      "[dev]",    cmd_unblock, "Unblock device",
 								dev_generator },
+	{ "set-allow-internal-profiles", "<dev> <true/false>",
+					cmd_set_allow_internal_profiles,
+					"Set allow internal profiles",
+					dev_generator },
 	{ "remove",       "<dev>",    cmd_remove, "Remove device",
 							dev_generator },
 	{ "connect",      "<dev>",    cmd_connect, "Connect device",
