@@ -189,6 +189,19 @@ Properties	string Address [readonly]
 			drivers will also be removed and no new ones will
 			be probed as long as the device is blocked.
 
+		boolean AllowInternalProfiles [readwrite]
+
+			If set to true, connection to this device will activate
+			BlueZ internal profiles (e.g. A2DP, HOG, Battery).
+			If set to false, internal profiles will not be activated
+			allowing the client to handle profiles which would
+			otherwise be controlled by internal handlers.
+			The default is configurable in main.conf.
+
+			Write operation to this property can only be accepted
+			when the device is not connected, otherwise
+			org.bluez.Error.Failed is returned.
+
 		boolean WakeAllowed [readwrite]
 
 			If set to true this device will be allowed to wake the
