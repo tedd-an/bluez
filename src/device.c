@@ -3818,7 +3818,7 @@ done:
 	profile = btd_service_get_profile(service);
 
 	/* Claim attributes of internal profiles */
-	if (!profile->external) {
+	if (!profile->external && !profile->claim_service_exception) {
 		/* Mark the service as claimed by the existing profile. */
 		gatt_db_service_set_claimed(attr, true);
 	}

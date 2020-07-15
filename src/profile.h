@@ -36,6 +36,11 @@ struct btd_profile {
 
 	bool auto_connect;
 	bool external;
+	/* Some profiles are considered safe to be handled internally and also
+	 * be exposed in the GATT API. This flag give such profiles exception
+	 * from being claimed internally.
+	 */
+	bool claim_service_exception;
 
 	int (*device_probe) (struct btd_service *service);
 	void (*device_remove) (struct btd_service *service);
