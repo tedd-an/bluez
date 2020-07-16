@@ -373,10 +373,16 @@ static void discovery_op_complete(struct discovery_op *op, bool success,
 	gatt_db_unregister(op->client->db, op->db_id);
 	op->db_id = 0;
 
-	/* Remove services pending */
+	/* Remove staled services */
 	for (svc = queue_get_entries(op->pending_svcs); svc; svc = svc->next) {
 		struct gatt_db_attribute *attr = svc->data;
 		uint16_t start, end;
+
+		/* Don't remove services that already been marked as active
+		 * previously.
+		 */
+		if (gatt_db_service_get_active(attr))
+			continue;
 
 		gatt_db_attribute_get_service_data(attr, &start, &end,
 							NULL, NULL);
