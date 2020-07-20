@@ -17,8 +17,8 @@
  *
  */
 
-#define CONFIG_SRV_MODEL	(VENDOR_ID_MASK | 0x0000)
-#define CONFIG_CLI_MODEL	(VENDOR_ID_MASK | 0x0001)
+#define CONFIG_SRV_MODEL	0x0000
+#define CONFIG_CLI_MODEL	0x0001
 
 /* New List */
 #define OP_APPKEY_ADD				0x00
