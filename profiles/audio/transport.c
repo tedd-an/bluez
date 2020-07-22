@@ -55,8 +55,6 @@
 
 #define MEDIA_TRANSPORT_INTERFACE "org.bluez.MediaTransport1"
 
-#define UNINITIALIZED_VOLUME_VALUE	128
-
 typedef enum {
 	TRANSPORT_STATE_IDLE,		/* Not acquired and suspended */
 	TRANSPORT_STATE_PENDING,	/* Playing but not acquired */
@@ -981,7 +979,7 @@ void media_transport_update_device_volume(struct btd_device *dev,
 {
 	GSList *l;
 
-	if (dev == NULL)
+	if (dev == NULL || !media_transport_volume_valid(volume))
 		return;
 
 	for (l = transports; l; l = l->next) {

@@ -1701,7 +1701,6 @@ static uint8_t avrcp_handle_request_continuing(struct avrcp *session,
 	if (pending->pdu_id != pdu->params[0])
 		goto err;
 
-
 	len = 0;
 	pending->attr_ids = player_fill_media_attribute(player,
 							pending->attr_ids,
@@ -4037,8 +4036,12 @@ static void target_init(struct avrcp *session)
 
 	player = g_slist_nth_data(server->players, 0);
 	if (player != NULL) {
+		uint8_t init_volume;
 		target->player = player;
 		player->sessions = g_slist_prepend(player->sessions, session);
+
+		init_volume = media_player_get_device_volume(session->dev);
+		media_transport_update_device_volume(session->dev, init_volume);
 	}
 
 	session->supported_events |= (1 << AVRCP_EVENT_STATUS_CHANGED) |
@@ -4471,6 +4474,27 @@ int avrcp_set_volume(struct btd_device *dev, uint8_t volume, bool notify)
 					AVC_CTYPE_CONTROL, AVC_SUBUNIT_PANEL,
 					buf, sizeof(buf),
 					avrcp_handle_set_volume, session);
+}
+
+struct avrcp_player *avrcp_get_target_player_by_device(struct btd_device *dev)
+{
+	struct avrcp_server *server;
+	struct avrcp *session;
+	struct avrcp_data *target;
+
+	server = find_server(servers, device_get_adapter(dev));
+	if (server == NULL)
+		return NULL;
+
+	session = find_session(server->sessions, dev);
+	if (session == NULL)
+		return NULL;
+
+	target = session->target;
+	if (target == NULL)
+		return NULL;
+
+	return target->player;
 }
 
 static int avrcp_connect(struct btd_service *service)

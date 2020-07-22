@@ -22,6 +22,8 @@
  *
  */
 
+#define UNINITIALIZED_VOLUME_VALUE	128
+
 struct media_transport;
 
 struct media_transport *media_transport_create(struct btd_device *device,
