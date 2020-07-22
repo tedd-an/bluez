@@ -55,6 +55,8 @@
 
 #define MEDIA_TRANSPORT_INTERFACE "org.bluez.MediaTransport1"
 
+#define UNINITIALIZED_VOLUME_VALUE	128
+
 typedef enum {
 	TRANSPORT_STATE_IDLE,		/* Not acquired and suspended */
 	TRANSPORT_STATE_PENDING,	/* Playing but not acquired */
@@ -86,7 +88,7 @@ struct media_owner {
 struct a2dp_transport {
 	struct avdtp		*session;
 	uint16_t		delay;
-	uint16_t		volume;
+	uint8_t			volume;
 };
 
 struct media_transport {
@@ -634,7 +636,7 @@ static gboolean volume_exists(const GDBusPropertyTable *property, void *data)
 	struct media_transport *transport = data;
 	struct a2dp_transport *a2dp = transport->data;
 
-	return a2dp->volume <= 127;
+	return media_transport_volume_valid(a2dp->volume);
 }
 
 static gboolean get_volume(const GDBusPropertyTable *property,
@@ -654,24 +656,20 @@ static void set_volume(const GDBusPropertyTable *property,
 {
 	struct media_transport *transport = data;
 	struct a2dp_transport *a2dp = transport->data;
-	uint16_t volume;
+	uint16_t arg;
+	uint8_t volume;
 	bool notify;
 
-	if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_UINT16) {
-		g_dbus_pending_property_error(id,
-					ERROR_INTERFACE ".InvalidArguments",
-					"Invalid arguments in method call");
-		return;
-	}
+	if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_UINT16)
+		goto error;
 
-	dbus_message_iter_get_basic(iter, &volume);
+	dbus_message_iter_get_basic(iter, &arg);
+	if (arg > UINT8_MAX)
+		goto error;
 
-	if (volume > 127) {
-		g_dbus_pending_property_error(id,
-					ERROR_INTERFACE ".InvalidArguments",
-					"Invalid arguments in method call");
-		return;
-	}
+	volume = (uint8_t)arg;
+	if (!media_transport_volume_valid(volume))
+		goto error;
 
 	g_dbus_pending_property_success(id);
 
@@ -688,6 +686,11 @@ static void set_volume(const GDBusPropertyTable *property,
 						"Volume");
 
 	avrcp_set_volume(transport->device, volume, notify);
+	return;
+
+error:
+	g_dbus_pending_property_error(id, ERROR_INTERFACE ".InvalidArguments",
+					"Invalid arguments in method call");
 }
 
 static gboolean endpoint_exists(const GDBusPropertyTable *property, void *data)
@@ -824,7 +827,7 @@ static int media_transport_init_source(struct media_transport *transport)
 	transport->data = a2dp;
 	transport->destroy = destroy_a2dp;
 
-	a2dp->volume = -1;
+	a2dp->volume = UNINITIALIZED_VOLUME_VALUE;
 	transport->sink_watch = sink_add_state_cb(service, sink_state_changed,
 								transport);
 
@@ -931,7 +934,7 @@ struct btd_device *media_transport_get_dev(struct media_transport *transport)
 	return transport->device;
 }
 
-uint16_t media_transport_get_volume(struct media_transport *transport)
+uint8_t media_transport_get_volume(struct media_transport *transport)
 {
 	struct a2dp_transport *a2dp = transport->data;
 	return a2dp->volume;
@@ -958,7 +961,7 @@ uint8_t media_transport_get_device_volume(struct btd_device *dev)
 	GSList *l;
 
 	if (dev == NULL)
-		return 128;
+		return UNINITIALIZED_VOLUME_VALUE;
 
 	for (l = transports; l; l = l->next) {
 		struct media_transport *transport = l->data;
@@ -990,4 +993,9 @@ void media_transport_update_device_volume(struct btd_device *dev,
 		if (media_endpoint_get_sep(transport->endpoint))
 			media_transport_update_volume(transport, volume);
 	}
+}
+
+bool media_transport_volume_valid(uint8_t volume)
+{
+	return volume < 128;
 }
