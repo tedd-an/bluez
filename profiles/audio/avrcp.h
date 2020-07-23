@@ -94,7 +94,7 @@ struct avrcp_player_cb {
 	uint32_t (*get_position) (void *user_data);
 	uint32_t (*get_duration) (void *user_data);
 	const char *(*get_name) (void *user_data);
-	void (*set_volume) (uint8_t volume, struct btd_device *dev,
+	void (*set_volume) (int8_t volume, struct btd_device *dev,
 							void *user_data);
 	bool (*play) (void *user_data);
 	bool (*stop) (void *user_data);
@@ -103,7 +103,7 @@ struct avrcp_player_cb {
 	bool (*previous) (void *user_data);
 };
 
-int avrcp_set_volume(struct btd_device *dev, uint8_t volume, bool notify);
+int avrcp_set_volume(struct btd_device *dev, int8_t volume, bool notify);
 
 struct avrcp_player *avrcp_register_player(struct btd_adapter *adapter,
 						struct avrcp_player_cb *cb,
@@ -113,7 +113,6 @@ void avrcp_unregister_player(struct avrcp_player *player);
 
 void avrcp_player_event(struct avrcp_player *player, uint8_t id,
 							const void *data);
-
 
 size_t avrcp_handle_vendor_reject(uint8_t *code, uint8_t *operands);
 size_t avrcp_browsing_general_reject(uint8_t *operands);
