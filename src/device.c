@@ -2596,7 +2596,8 @@ static void device_svc_resolved(struct btd_device *dev, uint8_t browse_type,
 
 	DBG("%s err %d", dev->path, err);
 
-	state->svc_resolved = true;
+	if (err == 0)
+		state->svc_resolved = true;
 
 	/* Disconnection notification can happen before this function
 	 * gets called, so don't set svc_refreshed for a disconnected
