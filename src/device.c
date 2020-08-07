@@ -2875,6 +2875,15 @@ static void device_cancel_bonding(struct btd_device *device, uint8_t status)
 	if (!bonding)
 		return;
 
+	/* Auto connect may get enabled during the service discovery even
+	 * before the pairing process completes. In such case, disable it
+	 * when the user has cancelled the pairing process.
+	 */
+	if (device->auto_connect) {
+		device->disable_auto_connect = TRUE;
+		device_set_auto_connect(device, FALSE);
+	}
+
 	ba2str(&device->bdaddr, addr);
 	DBG("Canceling bonding request for %s", addr);
 
