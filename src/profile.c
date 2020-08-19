@@ -2509,6 +2509,96 @@ static DBusMessage *unregister_profile(DBusConnection *conn,
 	return dbus_message_new_method_return(msg);
 }
 
+static DBusMessage *get_profile_info(DBusConnection *conn,
+					DBusMessage *msg, void *user_data)
+{
+	DBusMessage *reply;
+	DBusMessageIter iter, dict;
+	const char *path, *adapter, *sender;
+	struct ext_profile *ext;
+	uint16_t u16;
+	GSList *l, *next;
+
+	sender = dbus_message_get_sender(msg);
+
+	DBG("sender %s", sender);
+
+	if (!dbus_message_get_args(msg, NULL, DBUS_TYPE_OBJECT_PATH, &path,
+				   DBUS_TYPE_OBJECT_PATH, &adapter,
+				   DBUS_TYPE_INVALID)) {
+		return btd_error_invalid_args(msg);
+	}
+
+	if (adapter && !*adapter)
+		adapter = NULL;
+
+	ext = find_ext_profile(sender, path);
+	if (!ext)
+		return btd_error_does_not_exist(msg);
+
+	reply = dbus_message_new_method_return(msg);
+
+	dbus_message_iter_init_append(reply, &iter);
+
+	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
+					 "{sv}", &dict);
+
+	g_dbus_dict_append_entry(&dict, "UUID", DBUS_TYPE_STRING,
+				 &ext->uuid);
+	if (ext->name) {
+		g_dbus_dict_append_entry(&dict, "Name", DBUS_TYPE_STRING,
+					 &ext->name);
+	}
+	if (ext->path) {
+		g_dbus_dict_append_entry(&dict, "Path", DBUS_TYPE_STRING,
+					 &ext->path);
+	}
+	if (ext->service) {
+		g_dbus_dict_append_entry(&dict, "Service", DBUS_TYPE_STRING,
+					 &ext->service);
+	}
+
+	u16 = ext->mode;
+	g_dbus_dict_append_entry(&dict, "Mode", DBUS_TYPE_UINT16,
+				 &u16);
+
+	u16 = ext->addr_type;
+	g_dbus_dict_append_entry(&dict, "AddressType", DBUS_TYPE_UINT16,
+				 &u16);
+
+	if (adapter) {
+		for (l = ext->servers; l != NULL; l = next) {
+			struct ext_io *server = l->data;
+			const char *ctype;
+
+			DBG("server:%p  %d %d psm:%d chan:%d",
+			    server, server->resolving, server->connected,
+			    server->psm, server->chan);
+
+			next = g_slist_next(l);
+
+			if (strcmp(adapter, adapter_get_path(server->adapter)))
+				continue;
+
+			if (server->proto == BTPROTO_L2CAP) {
+				ctype = "PSM";
+				u16 = server->psm;
+			} else if (server->proto == BTPROTO_RFCOMM) {
+				ctype = "Channel";
+				u16 = server->chan;
+			} else {
+				continue;
+			}
+			g_dbus_dict_append_entry(
+				&dict, ctype, DBUS_TYPE_UINT16, &u16);
+		}
+	}
+
+	dbus_message_iter_close_container(&iter, &dict);
+
+	return reply;
+}
+
 static const GDBusMethodTable methods[] = {
 	{ GDBUS_METHOD("RegisterProfile",
 			GDBUS_ARGS({ "profile", "o"}, { "UUID", "s" },
@@ -2516,6 +2606,9 @@ static const GDBusMethodTable methods[] = {
 			NULL, register_profile) },
 	{ GDBUS_METHOD("UnregisterProfile", GDBUS_ARGS({ "profile", "o" }),
 			NULL, unregister_profile) },
+	{ GDBUS_METHOD("GetProfileInfo",
+			GDBUS_ARGS({ "profile", "o" }, { "adapter", "o" }),
+			GDBUS_ARGS({ "options", "a{sv}" }), get_profile_info) },
 	{ }
 };
 

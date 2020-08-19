@@ -133,6 +133,19 @@ Object path	/org/bluez
 
 			Possible errors: org.bluez.Error.DoesNotExist
 
+		options GetProfileInfo(object profile, object adapter)
+
+			This returns a dictionary of options for the
+			profile.  Values returned are: UUID, Name,
+			Path, Service, Mode and AddressType.  The
+			adapter parameter is optional - if it is
+			non-empty, then two additional values might be
+			returned, if the profile is active on the
+			specified adapter: PSM and Channel.
+
+			Possible errors: org.bluez.Error.InvalidArguments
+			                 org.bluez.Error.DoesNotExist
+
 
 Profile hierarchy
 =================
