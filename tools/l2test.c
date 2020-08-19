@@ -1155,8 +1155,8 @@ static void info_request(char *svr)
 
 	switch (btohs(rsp->result)) {
 	case 0x0000:
-		memcpy(&mtu, rsp->data, sizeof(mtu));
-		printf("Connectionless MTU size is %d\n", btohs(mtu));
+		mtu = bt_get_le16(rsp->data);
+		printf("Connectionless MTU size is %d\n", mtu);
 		break;
 	case 0x0001:
 		printf("Connectionless MTU is not supported\n");
@@ -1182,8 +1182,8 @@ static void info_request(char *svr)
 
 	switch (btohs(rsp->result)) {
 	case 0x0000:
-		memcpy(&mask, rsp->data, sizeof(mask));
-		printf("Extended feature mask is 0x%04x\n", btohl(mask));
+		mask = bt_get_le32(rsp->data);
+		printf("Extended feature mask is 0x%04x\n", mask);
 		if (mask & L2CAP_FEAT_FLOWCTL)
 			printf("  Flow control mode\n");
 		if (mask & L2CAP_FEAT_RETRANS)
@@ -1210,7 +1210,7 @@ static void info_request(char *svr)
 		break;
 	}
 
-	if (!(mask & 0x80))
+	if (!(mask & L2CAP_FEAT_FIXED_CHAN))
 		goto failed;
 
 	memset(buf, 0, sizeof(buf));
@@ -1232,8 +1232,8 @@ static void info_request(char *svr)
 
 	switch (btohs(rsp->result)) {
 	case 0x0000:
-		memcpy(&channels, rsp->data, sizeof(channels));
-		printf("Fixed channels list is 0x%04x\n", btohl(channels));
+		channels = bt_get_le32(rsp->data);
+		printf("Fixed channels list is 0x%04x\n", channels);
 		break;
 	case 0x0001:
 		printf("Fixed channels list is not supported\n");
