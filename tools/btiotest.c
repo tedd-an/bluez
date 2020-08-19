@@ -556,7 +556,7 @@ static int opt_sec = 0;
 static gboolean opt_master = FALSE;
 static int opt_priority = 0;
 static int opt_cid = 0;
-static guint8 opt_addr_type = 0;
+static int opt_addr_type = 0;
 
 static GMainLoop *main_loop;
 
@@ -616,8 +616,9 @@ int main(int argc, char *argv[])
 	g_option_context_free(context);
 
 	printf("accept=%d reject=%d discon=%d defer=%d sec=%d update_sec=%d"
-		" prio=%d voice=0x%04x\n", opt_accept, opt_reject, opt_disconn,
-		opt_defer, opt_sec, opt_update_sec, opt_priority, opt_voice);
+		" prio=%d voice=0x%04x addr_type=%u\n", opt_accept, opt_reject, opt_disconn,
+		opt_defer, opt_sec, opt_update_sec, opt_priority, opt_voice,
+		opt_addr_type);
 
 	if (opt_psm || opt_cid) {
 		if (argc > 1)
