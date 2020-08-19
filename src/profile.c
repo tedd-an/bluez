@@ -677,6 +677,7 @@ struct ext_profile {
 	guint id;
 
 	BtIOMode mode;
+	uint8_t addr_type;
 	BtIOSecLevel sec_level;
 	bool authorize;
 
@@ -1173,9 +1174,16 @@ static struct ext_io *create_conn(struct ext_io *server, GIOChannel *io,
 	struct btd_service *service;
 	struct ext_io *conn;
 	GIOCondition cond;
+	uint8_t addr_type;
 	char addr[18];
 
-	device = btd_adapter_find_device(server->adapter, dst, BDADDR_BREDR);
+	addr_type = server->ext->addr_type;
+	device = btd_adapter_find_device(server->adapter, dst, addr_type);
+	if (device == NULL && addr_type != BDADDR_BREDR) {
+		addr_type ^= (BDADDR_LE_PUBLIC | BDADDR_LE_RANDOM);
+		device = btd_adapter_find_device(server->adapter, dst,
+						 addr_type);
+	}
 	if (device == NULL) {
 		ba2str(dst, addr);
 		error("%s device %s not found", server->ext->name, addr);
@@ -1350,6 +1358,7 @@ static uint32_t ext_start_servers(struct ext_profile *ext,
 		io = bt_io_listen(connect, confirm, l2cap, NULL, &err,
 					BT_IO_OPT_SOURCE_BDADDR,
 					btd_adapter_get_address(adapter),
+					BT_IO_OPT_SOURCE_TYPE, ext->addr_type,
 					BT_IO_OPT_MODE, ext->mode,
 					BT_IO_OPT_PSM, psm,
 					BT_IO_OPT_SEC_LEVEL, ext->sec_level,
@@ -1567,6 +1576,8 @@ static int connect_io(struct ext_io *conn, const bdaddr_t *src,
 		io = bt_io_connect(ext_connect, conn, NULL, &gerr,
 					BT_IO_OPT_SOURCE_BDADDR, src,
 					BT_IO_OPT_DEST_BDADDR, dst,
+					BT_IO_OPT_SOURCE_TYPE, ext->addr_type,
+					BT_IO_OPT_DEST_TYPE, ext->addr_type,
 					BT_IO_OPT_SEC_LEVEL, ext->sec_level,
 					BT_IO_OPT_PSM, conn->psm,
 					BT_IO_OPT_INVALID);
@@ -2285,6 +2296,11 @@ static int parse_ext_opt(struct ext_profile *ext, const char *key,
 		dbus_message_iter_get_basic(value, &str);
 		free(ext->service);
 		ext->service = bt_name2string(str);
+	} else if (strcasecmp(key, "AddressType") == 0) {
+		if (type != DBUS_TYPE_UINT16)
+			return -EINVAL;
+		dbus_message_iter_get_basic(value, &u16);
+		ext->addr_type = u16;
 	}
 
 	return 0;

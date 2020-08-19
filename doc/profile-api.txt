@@ -112,6 +112,16 @@ Object path	/org/bluez
 
 					Profile features (for SDP record)
 
+				uint16 AddressType
+
+					Allows the Address Type to be
+					selected, can be either
+					BDADDR_BREDR, BDADDR_LE_PUBLIC
+					or BDADDR_LE_RANDOM.  If an LE
+					address is selected and the
+					device is not found, the other
+					sort of LE address is tried.
+
 			Possible errors: org.bluez.Error.InvalidArguments
 			                 org.bluez.Error.AlreadyExists
 
