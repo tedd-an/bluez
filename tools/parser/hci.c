@@ -3668,7 +3668,12 @@ static inline void le_meta_ev_dump(int level, struct frame *frm)
 	frm->len -= EVT_LE_META_EVENT_SIZE;
 
 	p_indent(level, frm);
-	printf("%s\n", ev_le_meta_str[subevent]);
+
+	if (subevent > LE_EV_NUM) {
+		printf("Unknown\n");
+	} else {
+		printf("%s\n", ev_le_meta_str[subevent]);
+	}
 
 	switch (mevt->subevent) {
 	case EVT_LE_CONN_COMPLETE:
