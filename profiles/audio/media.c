@@ -494,7 +494,8 @@ static gboolean set_configuration(struct media_endpoint *endpoint,
 		return FALSE;
 
 	init_volume = media_player_get_device_volume(device);
-	media_transport_update_volume(transport, init_volume);
+	if (init_volume >= 0)
+		media_transport_update_volume(transport, init_volume);
 
 	msg = dbus_message_new_method_call(endpoint->sender, endpoint->path,
 						MEDIA_ENDPOINT_INTERFACE,
