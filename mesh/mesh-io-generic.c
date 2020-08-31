@@ -213,8 +213,8 @@ static void configure_hci(struct mesh_io_private *io)
 
 	/* Set scan parameters */
 	cmd.type = 0x00; /* Passive Scanning. No scanning PDUs shall be sent */
-	cmd.interval = 0x0030; /* Scan Interval = N * 0.625ms */
-	cmd.window = 0x0030; /* Scan Window = N * 0.625ms */
+	cmd.interval = L_CPU_TO_LE16(0x0010); /* Scan Interval = N * 0.625ms */
+	cmd.window = L_CPU_TO_LE16(0x0010); /* Scan Window = N * 0.625ms */
 	cmd.own_addr_type = 0x00; /* Public Device Address */
 	/* Accept all advertising packets except directed advertising packets
 	 * not addressed to this device (default).
