@@ -47,7 +47,7 @@
 #include "tools/mesh-gatt/node.h"
 #include "tools/mesh-gatt/prov-db.h"
 #include "tools/mesh-gatt/util.h"
-#include "tools/mesh-gatt/onoff-model.h"
+#include "tools/mesh/generic-onoff-model.h"
 
 static uint8_t trans_id;
 static uint16_t onoff_app_idx = APP_IDX_INVALID;

@@ -50,6 +50,7 @@
 
 #include "mesh/agent.h"
 #include "mesh/config-model.h"
+#include "mesh/generic-onoff-model.h"
 
 #include "mesh-gatt/mesh-net.h"
 #include "mesh-gatt/gatt.h"
@@ -60,7 +61,6 @@
 #include "mesh-gatt/prov.h"
 #include "mesh-gatt/util.h"
 #include "mesh-gatt/prov-db.h"
-#include "mesh-gatt/onoff-model.h"
 
 /* String display constants */
 #define COLORED_NEW	COLOR_GREEN "NEW" COLOR_OFF
