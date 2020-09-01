@@ -79,8 +79,6 @@
 #include "advertising.h"
 #include "eir.h"
 
-#define ADAPTER_INTERFACE	"org.bluez.Adapter1"
-
 #define MODE_OFF		0x00
 #define MODE_CONNECTABLE	0x01
 #define MODE_DISCOVERABLE	0x02
