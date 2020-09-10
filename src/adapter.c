@@ -77,6 +77,7 @@
 #include "attrib-server.h"
 #include "gatt-database.h"
 #include "advertising.h"
+#include "adv_monitor.h"
 #include "eir.h"
 
 #define ADAPTER_INTERFACE	"org.bluez.Adapter1"
@@ -271,6 +272,8 @@ struct btd_adapter {
 
 	struct btd_gatt_database *database;
 	struct btd_adv_manager *adv_manager;
+
+	struct btd_adv_monitor_manager *adv_monitor_manager;
 
 	gboolean initialized;
 
@@ -6360,6 +6363,9 @@ static void adapter_remove(struct btd_adapter *adapter)
 	btd_adv_manager_destroy(adapter->adv_manager);
 	adapter->adv_manager = NULL;
 
+	btd_adv_monitor_manager_destroy(adapter->adv_monitor_manager);
+	adapter->adv_monitor_manager = NULL;
+
 	g_slist_free(adapter->pin_callbacks);
 	adapter->pin_callbacks = NULL;
 
@@ -8632,6 +8638,14 @@ static int adapter_register(struct btd_adapter *adapter)
 	}
 
 	adapter->adv_manager = btd_adv_manager_new(adapter, adapter->mgmt);
+
+	adapter->adv_monitor_manager = btd_adv_monitor_manager_create(
+							adapter, adapter->mgmt);
+	if (!adapter->adv_monitor_manager) {
+		btd_error(adapter->dev_id,
+			"Failed to create Adv Monitor Manager for adapter");
+		return -EINVAL;
+	}
 
 	db = btd_gatt_database_get_db(adapter->database);
 	adapter->db_id = gatt_db_register(db, services_modified,
