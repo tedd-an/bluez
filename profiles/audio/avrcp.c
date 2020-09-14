@@ -251,6 +251,7 @@ struct avrcp_player {
 	uint8_t *features;
 	char *path;
 	guint changed_id;
+	bool pending_player_changed;
 
 	struct pending_list_items *p;
 	char *change_path;
@@ -784,8 +785,8 @@ static uint16_t player_settings_changed(struct avrcp_player *player,
 	return size;
 }
 
-void avrcp_player_event(struct avrcp_player *player, uint8_t id,
-							const void *data)
+static void avrcp_send_event(struct avrcp_player *player, GSList *sessions,
+						uint8_t id, const void *data)
 {
 	uint8_t buf[AVRCP_HEADER_LENGTH + 9];
 	struct avrcp_header *pdu = (void *) buf;
@@ -793,7 +794,7 @@ void avrcp_player_event(struct avrcp_player *player, uint8_t id,
 	uint16_t size;
 	GSList *l;
 
-	if (player->sessions == NULL)
+	if (sessions == NULL)
 		return;
 
 	memset(buf, 0, sizeof(buf));
@@ -804,7 +805,8 @@ void avrcp_player_event(struct avrcp_player *player, uint8_t id,
 
 	DBG("id=%u", id);
 
-	if (id != AVRCP_EVENT_ADDRESSED_PLAYER_CHANGED && player->changed_id) {
+	if (id != AVRCP_EVENT_ADDRESSED_PLAYER_CHANGED &&
+					player->pending_player_changed) {
 		code = AVC_CTYPE_REJECTED;
 		size = 1;
 		pdu->params[0] = AVRCP_STATUS_ADDRESSED_PLAYER_CHANGED;
@@ -834,8 +836,8 @@ void avrcp_player_event(struct avrcp_player *player, uint8_t id,
 		break;
 	case AVRCP_EVENT_ADDRESSED_PLAYER_CHANGED:
 		size = 5;
-		memcpy(&pdu->params[1], &player->id, sizeof(uint16_t));
-		memcpy(&pdu->params[3], &player->uid_counter, sizeof(uint16_t));
+		bt_put_be16(player->id, &pdu->params[1]);
+		bt_put_be16(player->uid_counter, &pdu->params[3]);
 		break;
 	case AVRCP_EVENT_AVAILABLE_PLAYERS_CHANGED:
 		size = 1;
@@ -848,7 +850,7 @@ void avrcp_player_event(struct avrcp_player *player, uint8_t id,
 done:
 	pdu->params_len = htons(size);
 
-	for (l = player->sessions; l; l = l->next) {
+	for (l = sessions; l; l = l->next) {
 		struct avrcp *session = l->data;
 		int err;
 
@@ -868,6 +870,21 @@ done:
 	}
 
 	return;
+}
+
+void avrcp_player_event(struct avrcp_player *player, uint8_t id,
+							const void *data)
+{
+	avrcp_send_event(player, player->sessions, id, data);
+}
+
+static void avrcp_player_single_session_event(struct avrcp_player *player,
+			struct avrcp *session, uint8_t id, const void *data)
+{
+	GSList *session_list = g_slist_append(NULL, session);
+
+	avrcp_send_event(player, session_list, id, data);
+	g_slist_free(session_list);
 }
 
 static const char *metadata_to_str(uint32_t id)
@@ -1796,7 +1813,8 @@ static struct avrcp_player *find_tg_player(struct avrcp *session, uint16_t id)
 
 static gboolean notify_addressed_player_changed(gpointer user_data)
 {
-	struct avrcp_player *player = user_data;
+	struct avrcp *session = user_data;
+	struct avrcp_player *player = target_get_player(session);
 	uint8_t events[6] = { AVRCP_EVENT_STATUS_CHANGED,
 					AVRCP_EVENT_TRACK_CHANGED,
 					AVRCP_EVENT_TRACK_REACHED_START,
@@ -1806,17 +1824,21 @@ static gboolean notify_addressed_player_changed(gpointer user_data)
 				};
 	uint8_t i;
 
-	avrcp_player_event(player, AVRCP_EVENT_ADDRESSED_PLAYER_CHANGED, NULL);
+	avrcp_player_single_session_event(player, session,
+				AVRCP_EVENT_ADDRESSED_PLAYER_CHANGED, NULL);
 
 	/*
 	 * TG shall complete all player specific
 	 * notifications with AV/C C-Type REJECTED
 	 * with error code as Addressed Player Changed.
 	 */
+	player->pending_player_changed = true;
 	for (i = 0; i < sizeof(events); i++)
-		avrcp_player_event(player, events[i], NULL);
+		avrcp_player_single_session_event(player, session, events[i],
+									NULL);
 
 	player->changed_id = 0;
+	player->pending_player_changed = false;
 
 	return FALSE;
 }
@@ -1826,6 +1848,7 @@ static uint8_t avrcp_handle_set_addressed_player(struct avrcp *session,
 						uint8_t transaction)
 {
 	struct avrcp_player *player;
+	struct avrcp_player *old_player;
 	uint16_t len = ntohs(pdu->params_len);
 	uint16_t player_id = 0;
 	uint8_t status;
@@ -1839,21 +1862,32 @@ static uint8_t avrcp_handle_set_addressed_player(struct avrcp *session,
 	player = find_tg_player(session, player_id);
 	pdu->packet_type = AVRCP_PACKET_TYPE_SINGLE;
 
-	if (player) {
-		player->addressed = true;
-		status = AVRCP_STATUS_SUCCESS;
-		pdu->params_len = htons(len);
-		pdu->params[0] = status;
-	} else {
+	if (!player) {
 		status = AVRCP_STATUS_INVALID_PLAYER_ID;
 		goto err;
 	}
+
+	old_player = target_get_player(session);
+
+	if (old_player != player) {
+		if (old_player)
+			old_player->sessions = g_slist_remove(
+						old_player->sessions, session);
+
+		session->target->player = player;
+		player->sessions = g_slist_append(player->sessions, session);
+	}
+
+	player->addressed = true;
+	status = AVRCP_STATUS_SUCCESS;
+	pdu->params_len = htons(len);
+	pdu->params[0] = status;
 
 	/* Don't emit player changed immediately since PTS expect the
 	 * response of SetAddressedPlayer before the event.
 	 */
 	player->changed_id = g_idle_add(notify_addressed_player_changed,
-								player);
+								session);
 
 	return AVC_CTYPE_ACCEPTED;
 
@@ -4137,6 +4171,7 @@ static void target_init(struct avrcp *session)
 		int8_t init_volume;
 		target->player = player;
 		player->sessions = g_slist_prepend(player->sessions, session);
+		player->addressed = true;
 
 		init_volume = media_player_get_device_volume(session->dev);
 		media_transport_update_device_volume(session->dev, init_volume);
@@ -4430,11 +4465,12 @@ struct avrcp_player *avrcp_register_player(struct btd_adapter *adapter,
 			target->player = player;
 			player->sessions = g_slist_append(player->sessions,
 								session);
+			player->addressed = true;
+			notify_addressed_player_changed(session);
 		}
 	}
 
-	avrcp_player_event(player,
-				AVRCP_EVENT_AVAILABLE_PLAYERS_CHANGED, NULL);
+	avrcp_player_event(player, AVRCP_EVENT_AVAILABLE_PLAYERS_CHANGED, NULL);
 
 	return player;
 }
@@ -4442,9 +4478,11 @@ struct avrcp_player *avrcp_register_player(struct btd_adapter *adapter,
 void avrcp_unregister_player(struct avrcp_player *player)
 {
 	struct avrcp_server *server = player->server;
+	struct avrcp_player *substitute;
 	GSList *l;
 
 	server->players = g_slist_remove(server->players, player);
+	substitute = g_slist_nth_data(server->players, 0);
 
 	/* Remove player from sessions using it */
 	for (l = player->sessions; l; l = l->next) {
@@ -4454,12 +4492,18 @@ void avrcp_unregister_player(struct avrcp_player *player)
 		if (target == NULL)
 			continue;
 
-		if (target->player == player)
-			target->player = g_slist_nth_data(server->players, 0);
+		if (target->player == player) {
+			target->player = substitute;
+			if (substitute) {
+				substitute->addressed = true;
+				substitute->sessions = g_slist_append(
+						substitute->sessions, session);
+				notify_addressed_player_changed(session);
+			}
+		}
 	}
 
-	avrcp_player_event(player,
-				AVRCP_EVENT_AVAILABLE_PLAYERS_CHANGED, NULL);
+	avrcp_player_event(player, AVRCP_EVENT_AVAILABLE_PLAYERS_CHANGED, NULL);
 
 	player_destroy(player);
 }
