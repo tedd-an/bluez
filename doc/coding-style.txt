@@ -104,8 +104,15 @@ void btd_adapter_register_pin_cb(struct btd_adapter *adapter,
 void btd_adapter_register_pin_cb(struct btd_adapter *adapter,
 							btd_adapter_pin_cb_t cb)
 
+5)
+void btd_adapter_register_pin_cb(struct btd_adapter *adapter,
+				 btd_adapter_pin_cb_t cb)
+
 The referred style for line wrapping is to indent as far as possible to the
 right without hitting the 80 columns limit.
+
+It is acceptable to add padding with spaces after tabs to increase
+readability, for example to indent function arguments at the parenthesis.
 
 M5: Space when doing type casting
 =================================
