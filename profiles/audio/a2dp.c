@@ -915,6 +915,11 @@ static void update_last_used(struct a2dp_channel *chan, struct a2dp_sep *lsep,
 					avdtp_get_seid(rsep));
 }
 
+static void destroy_setup(void *data)
+{
+	setup_unref(data);
+}
+
 static gboolean open_ind(struct avdtp *session, struct avdtp_local_sep *sep,
 				struct avdtp_stream *stream, uint8_t *err,
 				void *user_data)
@@ -927,10 +932,21 @@ static gboolean open_ind(struct avdtp *session, struct avdtp_local_sep *sep,
 	else
 		DBG("Source %p: Open_Ind", sep);
 
+	if (avdtp_stream_get_user_data(stream)) {
+		warn("setup already exists");
+		return FALSE;
+	}
+
 	setup = a2dp_setup_get(session);
 	if (!setup)
 		return FALSE;
 
+	/*
+	 * Use avdtp_stream's user_data to keep the reference ownership of the
+	 * setup object. This ensures that this reference will be unref-ed
+	 * exactly once.
+	 */
+	avdtp_stream_set_user_data(stream, setup, destroy_setup);
 	setup->stream = stream;
 
 	if (!err && setup->chan)
@@ -1285,14 +1301,13 @@ static void abort_cfm(struct avdtp *session, struct avdtp_local_sep *sep,
 			void *user_data)
 {
 	struct a2dp_sep *a2dp_sep = user_data;
-	struct a2dp_setup *setup;
+	struct a2dp_setup *setup = avdtp_stream_get_user_data(stream);
 
 	if (a2dp_sep->type == AVDTP_SEP_TYPE_SINK)
 		DBG("Sink %p: Abort_Cfm", sep);
 	else
 		DBG("Source %p: Abort_Cfm", sep);
 
-	setup = find_setup_by_session(session);
 	if (!setup)
 		return;
 
@@ -1302,6 +1317,7 @@ static void abort_cfm(struct avdtp *session, struct avdtp_local_sep *sep,
 	}
 
 	setup_unref(setup);
+	avdtp_stream_set_user_data(stream, NULL, NULL);
 }
 
 static gboolean reconf_ind(struct avdtp *session, struct avdtp_local_sep *sep,
@@ -2216,11 +2232,12 @@ fail:
 
 static void transport_cb(GIOChannel *io, GError *err, gpointer user_data)
 {
-	struct a2dp_setup *setup = user_data;
+	struct avdtp_stream *stream = user_data;
+	struct a2dp_setup *setup = avdtp_stream_get_user_data(stream);
 	uint16_t omtu, imtu;
 
-	if (!g_slist_find(setups, setup)) {
-		warn("bt_io_accept: setup %p no longer valid", setup);
+	if (!setup) {
+		warn("transport_cb: setup does not exist");
 		g_io_channel_shutdown(io, TRUE, NULL);
 		return;
 	}
@@ -2238,8 +2255,7 @@ static void transport_cb(GIOChannel *io, GError *err, gpointer user_data)
 		goto drop;
 	}
 
-	if (!avdtp_stream_set_transport(setup->stream,
-					g_io_channel_unix_get_fd(io),
+	if (!avdtp_stream_set_transport(stream, g_io_channel_unix_get_fd(io),
 					imtu, omtu))
 		goto drop;
 
@@ -2249,6 +2265,7 @@ static void transport_cb(GIOChannel *io, GError *err, gpointer user_data)
 	setup->io = NULL;
 
 	setup_unref(setup);
+	avdtp_stream_set_user_data(stream, NULL, NULL);
 
 	return;
 
@@ -2297,7 +2314,8 @@ static void confirm_cb(GIOChannel *io, gpointer data)
 			goto drop;
 		}
 
-		if (!bt_io_accept(io, transport_cb, setup, NULL, &err)) {
+		if (!bt_io_accept(io, transport_cb, setup->stream, NULL,
+				  &err)) {
 			error("bt_io_accept: %s", err->message);
 			g_error_free(err);
 			goto drop;

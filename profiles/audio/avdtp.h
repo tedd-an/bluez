@@ -133,6 +133,8 @@ typedef void (*avdtp_set_configuration_cb) (struct avdtp *session,
 						struct avdtp_stream *stream,
 						struct avdtp_error *err);
 
+typedef void (*avdtp_stream_user_data_destroy_t)(void *data);
+
 /* Callbacks for when a reply is received to a command that we sent */
 struct avdtp_sep_cfm {
 	void (*set_configuration) (struct avdtp *session,
@@ -260,6 +262,9 @@ gboolean avdtp_stream_has_capabilities(struct avdtp_stream *stream,
 					GSList *caps);
 struct avdtp_remote_sep *avdtp_stream_get_remote_sep(
 						struct avdtp_stream *stream);
+void avdtp_stream_set_user_data(struct avdtp_stream *stream, void *data,
+				avdtp_stream_user_data_destroy_t destroy);
+void *avdtp_stream_get_user_data(struct avdtp_stream *stream);
 
 unsigned int avdtp_add_state_cb(struct btd_device *dev,
 				avdtp_session_state_cb cb, void *user_data);

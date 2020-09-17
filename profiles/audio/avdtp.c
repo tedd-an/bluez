@@ -366,6 +366,8 @@ struct avdtp_stream {
 	GSList *caps;
 	GSList *callbacks;
 	struct avdtp_service_capability *codec;
+	void *user_data;
+	avdtp_stream_user_data_destroy_t user_data_destroy;
 	guint io_id;		/* Transport GSource ID */
 	guint timer;		/* Waiting for other side to close or open
 				 * the transport channel */
@@ -726,6 +728,9 @@ static void stream_free(void *data)
 
 	g_slist_free_full(stream->callbacks, g_free);
 	g_slist_free_full(stream->caps, g_free);
+
+	if (stream->user_data && stream->user_data_destroy)
+		stream->user_data_destroy(stream->user_data);
 
 	g_free(stream);
 }
@@ -3145,6 +3150,18 @@ struct avdtp_remote_sep *avdtp_stream_get_remote_sep(
 	}
 
 	return NULL;
+}
+
+void avdtp_stream_set_user_data(struct avdtp_stream *stream, void *data,
+				avdtp_stream_user_data_destroy_t destroy)
+{
+	stream->user_data = data;
+	stream->user_data_destroy = destroy;
+}
+
+void *avdtp_stream_get_user_data(struct avdtp_stream *stream)
+{
+	return stream->user_data;
 }
 
 gboolean avdtp_stream_set_transport(struct avdtp_stream *stream, int fd,
