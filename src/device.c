@@ -6033,11 +6033,17 @@ void device_bonding_complete(struct btd_device *device, uint8_t bdaddr_type,
 		device_cancel_authentication(device, TRUE);
 
 		/* Put the device back to the temporary state so that it will be
-		 * treated as a newly discovered device.
+		 * treated as a newly discovered device; also disable auto
+		 * connect.
 		 */
 		if (!device_is_paired(device, bdaddr_type) &&
-				!device_is_trusted(device))
+				!device_is_trusted(device)) {
 			btd_device_set_temporary(device, true);
+			if (device->auto_connect) {
+				device->disable_auto_connect = TRUE;
+				device_set_auto_connect(device, FALSE);
+			}
+		}
 
 		device_bonding_failed(device, status);
 		return;
