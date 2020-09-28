@@ -4169,6 +4169,7 @@ static void load_default_system_params(struct btd_adapter *adapter)
 		struct mgmt_tlv entry;
 		union {
 			uint16_t u16;
+			uint8_t  u8;
 		};
 	} __packed *params;
 	uint16_t i = 0;
@@ -4434,6 +4435,15 @@ static void load_default_system_params(struct btd_adapter *adapter)
 			main_opts.default_params.advmon_no_filter_scan_duration;
 		++i;
 		len += sizeof(params[i].u16);
+	}
+
+	if (main_opts.default_params.enable_advmon_interleave_scan != 0xFF) {
+		params[i].entry.type = 0x001f;
+		params[i].entry.length = sizeof(params[i].u8);
+		params[i].u8 =
+			main_opts.default_params.enable_advmon_interleave_scan;
+		++i;
+		len += sizeof(params[i].u8);
 	}
 
 	err = mgmt_send(adapter->mgmt, MGMT_OP_SET_DEF_SYSTEM_CONFIG,
