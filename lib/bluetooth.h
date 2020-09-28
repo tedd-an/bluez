@@ -149,6 +149,8 @@ enum {
 	BT_CLOSED
 };
 
+#define malloc0(n) (calloc((n), 1))
+
 /* Byte order conversions */
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define htobs(d)  (d)
@@ -349,6 +351,7 @@ int basprintf(char *str, const char *format, ...);
 int basnprintf(char *str, size_t size, const char *format, ...);
 
 void *bt_malloc(size_t size);
+void *bt_malloc0(size_t size);
 void bt_free(void *ptr);
 
 int bt_error(uint16_t code);
