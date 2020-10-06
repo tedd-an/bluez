@@ -1213,7 +1213,7 @@ static void cmd_config(int argc, char **argv)
 	}
 
 	if (!mgmt_send(mgmt, MGMT_OP_READ_CONFIG_INFO, mgmt_index, 0, NULL,
-				config_info_rsp, UINT_TO_PTR(index), NULL)) {
+				config_info_rsp, UINT_TO_PTR(mgmt_index), NULL)) {
 		error("Unable to send read_config_info cmd");
 		return bt_shell_noninteractive_quit(EXIT_FAILURE);
 	}
