@@ -49,7 +49,7 @@ struct btp_adapter {
 	uint32_t supported_settings;
 	uint32_t current_settings;
 	uint32_t default_settings;
-	struct l_queue *devices;
+        struct l_queue *devices;
 };
 
 struct btp_device {
@@ -215,7 +215,8 @@ static struct btp_device *find_device_by_path(const char *path)
 	struct btp_device *device;
 
 	for (entry = l_queue_get_entries(adapters); entry;
-							entry = entry->next) {
+							entry = entry->next)
+	{
 		struct btp_adapter *adapter = entry->data;
 
 		device = l_queue_find(adapter->devices, match_device_paths,
@@ -3150,6 +3151,8 @@ int main(int argc, char *argv[])
 	int opt;
 
 	l_log_set_stderr();
+
+	/* This is a test comment to test checkpatch.pl for long line over 80 column line */
 
 	while ((opt = getopt_long(argc, argv, "+hs:vq", options, NULL)) != -1) {
 		switch (opt) {
