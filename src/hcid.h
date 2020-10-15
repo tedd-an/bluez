@@ -45,6 +45,7 @@ struct main_opts {
 
 	struct {
 		uint16_t	num_entries;
+		uint16_t	total_size;
 
 		uint16_t	br_page_scan_type;
 		uint16_t	br_page_scan_interval;
