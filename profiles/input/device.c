@@ -1097,7 +1097,8 @@ static int hidp_add_connection(struct input_device *idev)
 		}
 
 		idev->req = req;
-		idev->sec_watch = g_io_add_watch(idev->intr_io, G_IO_OUT,
+		if (!idev->sec_watch)
+			idev->sec_watch = g_io_add_watch(idev->intr_io, G_IO_IN,
 							encrypt_notify, idev);
 
 		return 0;

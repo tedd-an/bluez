@@ -51,6 +51,7 @@ static int opt_psm = 0;
 static int opt_mtu = 0;
 static int start;
 static int end;
+static guint gsrc;
 
 static void cmd_help(int argcp, char **argvp);
 
@@ -180,6 +181,7 @@ static void disconnect_io()
 	attrib = NULL;
 	opt_mtu = 0;
 
+	g_source_remove(gsrc);
 	g_io_channel_shutdown(iochannel, FALSE, NULL);
 	g_io_channel_unref(iochannel);
 	iochannel = NULL;
@@ -402,7 +404,7 @@ static void cmd_connect(int argcp, char **argvp)
 		error("%s\n", gerr->message);
 		g_error_free(gerr);
 	} else
-		g_io_add_watch(iochannel, G_IO_HUP, channel_watcher, NULL);
+		gsrc = g_io_add_watch(iochannel, G_IO_HUP, channel_watcher, NULL);
 }
 
 static void cmd_disconnect(int argcp, char **argvp)
