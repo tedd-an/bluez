@@ -63,12 +63,46 @@ Properties	string Type
 
 		dict Data [Experimental]
 
-			Advertising Type to include in the Advertising
-			Data. Key is the advertising type and value is the
-			data as byte array.
+			Data to be added into the Advertising Data payload.
+			Key is the advertising type and value is the data
+			as byte array.
 
-			Note: Types already handled by other properties shall
-			not be used.
+			"type" values supported:
+				0x02  Incomplete List of 16-bit Service UUIDs
+				0x03  Complete List of 16-bit Service UUIDs
+				0x04  Incomplete List of 32-bit Service UUIDs
+				0x05  Complete List of 32-bit Service UUIDs
+				0x06  Incomplete List of 128-bit Service UUIDs
+				0x07  Complete List of 128-bit Service UUIDs
+				0x08  Shortened Local Name
+				0x09  Complete Local Name
+				0x14  List of 16 bit Service Solicitation UUIDs
+				0x15  List of 128 bit Service Solicitation UUIDs
+				0x16  Service Data - 16 bit UUID
+				0x19  Appearance
+				0x1f  List of 32 bit Service Solicitation UUIDs
+				0x20  Service Data - 32 bit UUID
+				0x21  Service Data - 128 bit UUID
+				0x24  URI
+				0x25  Indoor Positioning
+				0x26  Transport Discovery Data
+				0xff  Manufacturer Specific Data
+
+			To ensure advertising contents maintain compliance to
+			the bluetooth specification, the provided type/data
+			sections will undergo the following validation:
+
+			- Repeated tag sections provided by Data property and
+			the other properties above will be merged together, if
+			possible.
+
+			- Misuse of Service UUID types, i.e. repeated UUID_ALL
+			sections, will result in a failed registration.
+
+			- The Appearance and Name section types may appear in
+			the Advertising data and Scan Response once in total.
+			Any redundant definitions of these tags will be
+			removed.
 
 			Possible values:
 				<type> <byte array>
@@ -77,6 +111,29 @@ Properties	string Type
 			Example:
 				<Transport Discovery> <Organization Flags...>
 				0x26                   0x01         0x01...
+
+		dict ScanResponseData
+
+			Data to be added into the Scan Response payload.
+			Key is the advertising type and value is the data
+			as byte array.
+
+			Note: By default, if the LocalName property is defined
+			or "local-name" is populated in the Include property,
+			the local name will be placed in the Scan Response
+			payload by default and merged with data provided in
+			ScanResponseData.
+
+			For allowed "type" values and their validation, see
+			"Data" property above.
+
+			Possible values:
+				<type> <byte array>
+				...
+
+			Example:
+				<Service Data UUID16> <HeartRate UUID  Data>
+				0x16                   0x0D 0x18       0x01...
 
 		bool Discoverable [Experimental]
 
