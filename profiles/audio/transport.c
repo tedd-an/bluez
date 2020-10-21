@@ -980,3 +980,23 @@ void media_transport_update_device_volume(struct btd_device *dev,
 			media_transport_update_volume(transport, volume);
 	}
 }
+
+gboolean media_transport_is_source(struct btd_device *dev)
+{
+	GSList *l;
+	const char *uuid;
+
+	if (dev == NULL)
+		return FALSE;
+
+	for (l = transports; l; l = l->next) {
+		struct media_transport *transport = l->data;
+		if (transport->device != dev)
+			continue;
+
+		uuid = media_endpoint_get_uuid(transport->endpoint);
+		return strcasecmp(uuid, A2DP_SOURCE_UUID) == 0;
+	}
+
+	return FALSE;
+}

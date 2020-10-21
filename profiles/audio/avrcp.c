@@ -269,7 +269,13 @@ struct avrcp {
 	unsigned int control_id;
 	unsigned int browsing_id;
 	unsigned int browsing_timer;
-	uint16_t supported_events;
+	// TODO: Swap names to make them represent the name of the peer profile,
+	// instead of the opposite local profile?
+	/* Events the Remote Target expects based on peer Remote Controller version */
+	uint16_t target_supported_events;
+	/* Events the Remote Controller expects based on peer Remote Target version */
+	uint16_t controller_supported_events;
+	// TODO: Registered_events should be split across controller/target too!
 	uint16_t registered_events;
 	uint8_t transaction;
 	uint8_t transaction_events[AVRCP_EVENT_LAST + 1];
@@ -1060,13 +1066,18 @@ static uint8_t avrcp_handle_get_capabilities(struct avrcp *session,
 						struct avrcp_header *pdu,
 						uint8_t transaction)
 {
-	uint16_t len = ntohs(pdu->params_len);
+	uint16_t len = ntohs(pdu->params_len), supported_events;
 	unsigned int i;
 
 	if (len != 1)
 		goto err;
 
 	DBG("id=%u", pdu->params[0]);
+
+	if (media_transport_is_source(session->dev))
+		supported_events = session->target_supported_events;
+	else
+		supported_events = session->controller_supported_events;
 
 	switch (pdu->params[0]) {
 	case CAP_COMPANY_ID:
@@ -1082,7 +1093,7 @@ static uint8_t avrcp_handle_get_capabilities(struct avrcp *session,
 	case CAP_EVENTS_SUPPORTED:
 		pdu->params[1] = 0;
 		for (i = 1; i <= AVRCP_EVENT_LAST; i++) {
-			if (session->supported_events & (1 << i)) {
+			if (supported_events & (1 << i)) {
 				pdu->params[1]++;
 				pdu->params[pdu->params[1] + 1] = i;
 			}
@@ -1607,7 +1618,7 @@ static uint8_t avrcp_handle_register_notification(struct avrcp *session,
 {
 	struct avrcp_player *player = target_get_player(session);
 	struct btd_device *dev = session->dev;
-	uint16_t len = ntohs(pdu->params_len);
+	uint16_t len = ntohs(pdu->params_len), supported_events;
 	uint64_t uid;
 	int8_t volume;
 
@@ -1620,7 +1631,12 @@ static uint8_t avrcp_handle_register_notification(struct avrcp *session,
 		goto err;
 
 	/* Check if event is supported otherwise reject */
-	if (!(session->supported_events & (1 << pdu->params[0])))
+	if (media_transport_is_source(session->dev))
+		supported_events = session->target_supported_events;
+	else
+		supported_events = session->controller_supported_events;
+
+	if (!(supported_events & (1 << pdu->params[0])))
 		goto err;
 
 	switch (pdu->params[0]) {
@@ -4129,7 +4145,11 @@ static void target_init(struct avrcp *session)
 		media_transport_update_device_volume(session->dev, init_volume);
 	}
 
-	session->supported_events |= (1 << AVRCP_EVENT_STATUS_CHANGED) |
+	if (target->version < 0x0103)
+		return;
+
+	session->target_supported_events |=
+				(1 << AVRCP_EVENT_STATUS_CHANGED) |
 				(1 << AVRCP_EVENT_TRACK_CHANGED) |
 				(1 << AVRCP_EVENT_TRACK_REACHED_START) |
 				(1 << AVRCP_EVENT_TRACK_REACHED_END) |
@@ -4138,10 +4158,13 @@ static void target_init(struct avrcp *session)
 	if (target->version < 0x0104)
 		return;
 
-	session->supported_events |=
+	session->target_supported_events |=
 				(1 << AVRCP_EVENT_ADDRESSED_PLAYER_CHANGED) |
-				(1 << AVRCP_EVENT_AVAILABLE_PLAYERS_CHANGED) |
-				(1 << AVRCP_EVENT_VOLUME_CHANGED);
+				(1 << AVRCP_EVENT_AVAILABLE_PLAYERS_CHANGED);
+				// Does not make sense here; the remote is the
+				// rendering device and in control, it'll never
+				// request this notification.
+				// (1 << AVRCP_EVENT_VOLUME_CHANGED);
 
 	/* Only check capabilities if controller is not supported */
 	if (session->controller == NULL)
@@ -4180,10 +4203,25 @@ static void controller_init(struct avrcp *session)
 	if (controller->version < 0x0103)
 		return;
 
-	avrcp_get_capabilities(session);
+	// Players should only run on the remote target; they
+	// should never request notifications about their own
+	// playback status.
+	// session->controller_supported_events |=
+	// 			(1 << AVRCP_EVENT_STATUS_CHANGED) |
+	// 			(1 << AVRCP_EVENT_TRACK_CHANGED) |
+	// 			(1 << AVRCP_EVENT_TRACK_REACHED_START) |
+	// 			(1 << AVRCP_EVENT_TRACK_REACHED_END) |
+	// 			(1 << AVRCP_EVENT_SETTINGS_CHANGED);
 
 	if (controller->version < 0x0104)
 		return;
+
+	session->controller_supported_events |=
+				// (1 << AVRCP_EVENT_ADDRESSED_PLAYER_CHANGED) |
+				// (1 << AVRCP_EVENT_AVAILABLE_PLAYERS_CHANGED) |
+				(1 << AVRCP_EVENT_VOLUME_CHANGED);
+
+	avrcp_get_capabilities(session);
 
 	if (!(controller->features & AVRCP_FEATURE_BROWSING))
 		return;

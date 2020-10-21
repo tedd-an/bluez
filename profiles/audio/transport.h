@@ -30,3 +30,4 @@ void transport_get_properties(struct media_transport *transport,
 int8_t media_transport_get_device_volume(struct btd_device *dev);
 void media_transport_update_device_volume(struct btd_device *dev,
 								int8_t volume);
+gboolean media_transport_is_source(struct btd_device *dev);
