@@ -271,6 +271,37 @@ static void clear_endpoint(struct media_endpoint *endpoint)
 		clear_configuration(endpoint, endpoint->transports->data);
 }
 
+static int transport_device_cmp(gconstpointer data, gconstpointer user_data)
+{
+	struct media_transport *transport = (struct media_transport *) data;
+	const struct btd_device *device = user_data;
+	const struct btd_device *dev = media_transport_get_dev(transport);
+
+	if (device == dev)
+		return 0;
+
+	return -1;
+}
+
+static struct media_transport *find_device_transport(
+					struct media_endpoint *endpoint,
+					struct btd_device *device)
+{
+	GSList *match;
+
+	match = g_slist_find_custom(endpoint->transports, device,
+							transport_device_cmp);
+	if (match == NULL)
+		return NULL;
+
+	return match->data;
+}
+
+struct a2dp_config_data {
+	struct a2dp_setup *setup;
+	a2dp_endpoint_config_t cb;
+};
+
 static void endpoint_reply(DBusPendingCall *call, void *user_data)
 {
 	struct endpoint_request *request = user_data;
@@ -296,6 +327,21 @@ static void endpoint_reply(DBusPendingCall *call, void *user_data)
 			dbus_message_unref(reply);
 			dbus_error_free(&err);
 			return;
+		}
+
+		if (dbus_message_is_method_call(request->msg,
+					MEDIA_ENDPOINT_INTERFACE,
+					"SetConfiguration")) {
+			struct a2dp_config_data *data = request->user_data;
+			struct btd_device *device =
+					a2dp_setup_get_device(data->setup);
+			struct media_transport *transport =
+					find_device_transport(endpoint, device);
+
+			if (transport == NULL)
+				error("Expected to destroy transport");
+			else
+				media_transport_destroy(transport);
 		}
 
 		dbus_error_free(&err);
@@ -395,37 +441,6 @@ static gboolean select_configuration(struct media_endpoint *endpoint,
 
 	return media_endpoint_async_call(msg, endpoint, cb, user_data, destroy);
 }
-
-static int transport_device_cmp(gconstpointer data, gconstpointer user_data)
-{
-	struct media_transport *transport = (struct media_transport *) data;
-	const struct btd_device *device = user_data;
-	const struct btd_device *dev = media_transport_get_dev(transport);
-
-	if (device == dev)
-		return 0;
-
-	return -1;
-}
-
-static struct media_transport *find_device_transport(
-					struct media_endpoint *endpoint,
-					struct btd_device *device)
-{
-	GSList *match;
-
-	match = g_slist_find_custom(endpoint->transports, device,
-							transport_device_cmp);
-	if (match == NULL)
-		return NULL;
-
-	return match->data;
-}
-
-struct a2dp_config_data {
-	struct a2dp_setup *setup;
-	a2dp_endpoint_config_t cb;
-};
 
 int8_t media_player_get_device_volume(struct btd_device *device)
 {
