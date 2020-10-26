@@ -558,6 +558,48 @@ static struct mgmt_request *create_request(uint16_t opcode, uint16_t index,
 	return request;
 }
 
+unsigned int mgmt_sendv(struct mgmt *mgmt, uint16_t opcode, uint16_t index,
+				int count, void *iovecs,
+				mgmt_request_func_t callback,
+				void *user_data, mgmt_destroy_func_t destroy)
+{
+	FILE *ptr = NULL;
+	int fd;
+	ssize_t buf_len;
+	uint8_t *buf = NULL;
+	unsigned int ret = 0;
+
+	ptr = tmpfile();
+
+	if (!ptr)
+		goto done;
+
+	fd = fileno(ptr);
+	buf_len = writev(fd, (struct iovec *)iovecs, count);
+
+	if (buf_len < 0)
+		goto done;
+
+	buf = malloc(buf_len);
+
+	if (!buf)
+		goto done;
+
+	rewind(ptr);
+	if (fread(buf, 1, buf_len, ptr) < buf_len)
+		goto done;
+
+	ret = mgmt_send(mgmt, opcode, index, buf_len, buf, callback, user_data,
+								destroy);
+
+done:
+	if (ptr)
+		fclose(ptr);
+	if (buf)
+		free(buf);
+	return ret;
+}
+
 unsigned int mgmt_send(struct mgmt *mgmt, uint16_t opcode, uint16_t index,
 				uint16_t length, const void *param,
 				mgmt_request_func_t callback,
