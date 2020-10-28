@@ -8877,6 +8877,7 @@ static void connect_failed_callback(uint16_t index, uint16_t length,
 	struct btd_adapter *adapter = user_data;
 	struct btd_device *device;
 	char addr[18];
+	bool initially_temporary = true;
 
 	if (length < sizeof(*ev)) {
 		btd_error(adapter->dev_id, "Too small connect failed event");
@@ -8897,6 +8898,11 @@ static void connect_failed_callback(uint16_t index, uint16_t length,
 		 * request structure. */
 		if (device_is_bonding(device, NULL))
 			device_cancel_authentication(device, FALSE);
+
+		/* Store whether device is temporary before the attribute is
+		 * cleared in bonding_attempt_complete
+		 */
+		initially_temporary = device_is_temporary(device);
 	}
 
 	/* In the case of security mode 3 devices */
@@ -8914,8 +8920,7 @@ static void connect_failed_callback(uint16_t index, uint16_t length,
 
 	/* In the case the bonding was canceled or did exists, remove the device
 	 * when it is temporary. */
-	if (device && !device_is_bonding(device, NULL)
-						&& device_is_temporary(device))
+	if (device && !device_is_bonding(device, NULL) && initially_temporary)
 		btd_adapter_remove_device(adapter, device);
 }
 
