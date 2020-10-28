@@ -31,6 +31,12 @@ struct bt_ad {
 	struct queue *data;
 };
 
+struct pattern_match_info {
+	struct bt_ad *ad;
+	struct bt_ad_pattern *current_pattern;
+	struct bt_ad_pattern *matched_pattern;
+};
+
 struct bt_ad *bt_ad_new(void)
 {
 	struct bt_ad *ad;
@@ -44,6 +50,76 @@ struct bt_ad *bt_ad_new(void)
 	ad->appearance = UINT16_MAX;
 
 	return bt_ad_ref(ad);
+}
+
+static bool ad_replace_data(struct bt_ad *ad, uint8_t type, void *data,
+							size_t len);
+
+static bool ad_is_type_valid(uint8_t type)
+{
+	if (type > BT_AD_3D_INFO_DATA && type != BT_AD_MANUFACTURER_DATA)
+		return false;
+	if (type < BT_AD_FLAGS)
+		return false;
+
+	return true;
+}
+
+struct bt_ad *bt_ad_new_with_data(size_t len, const uint8_t *data)
+{
+	struct bt_ad *ad;
+	uint16_t parsed_len = 0;
+	uint8_t *data_copy = NULL;
+
+	if (data == NULL || !len)
+		return NULL;
+
+	data_copy = malloc(len);
+	if (!data_copy)
+		return NULL;
+
+	memcpy(data_copy, data, len);
+
+	ad = bt_ad_new();
+	if (!ad)
+		goto cleanup;
+
+	while (parsed_len < len - 1) {
+		uint8_t d_len;
+		uint8_t d_type;
+		uint8_t *d;
+		uint8_t field_len = data_copy[0];
+
+		if (field_len == 0)
+			break;
+
+		parsed_len += field_len + 1;
+
+		if (parsed_len > len)
+			break;
+
+		d = &data_copy[2];
+		d_type = data_copy[1];
+		d_len = field_len - 1;
+
+		if (!ad_is_type_valid(d_type))
+			goto failed;
+
+		if (!ad_replace_data(ad, d_type, d, d_len))
+			goto failed;
+
+		data_copy += field_len + 1;
+	}
+
+	free(data_copy);
+	return ad;
+
+failed:
+	bt_ad_unref(ad);
+
+cleanup:
+	free(data_copy);
+	return NULL;
 }
 
 struct bt_ad *bt_ad_ref(struct bt_ad *ad)
@@ -993,4 +1069,88 @@ void bt_ad_clear_data(struct bt_ad *ad)
 		return;
 
 	queue_remove_all(ad->data, NULL, NULL, data_destroy);
+}
+
+struct bt_ad_pattern *bt_ad_pattern_new(uint8_t type, size_t offset, size_t len,
+							const uint8_t *data)
+{
+	struct bt_ad_pattern *pattern;
+
+	if (!data || !len || offset >= BT_AD_MAX_DATA_LEN ||
+		len > BT_AD_MAX_DATA_LEN || offset + len > BT_AD_MAX_DATA_LEN) {
+		return NULL;
+	}
+
+	if (!ad_is_type_valid(type))
+		return NULL;
+
+	pattern = new0(struct bt_ad_pattern, 1);
+	if (!pattern)
+		return NULL;
+
+	pattern->len = len;
+	pattern->type = type;
+	pattern->offset = offset;
+	memcpy(pattern->data, data, len);
+
+	return pattern;
+}
+
+static void pattern_ad_data_match(void *data, void *user_data)
+{
+	struct bt_ad_data *ad_data = data;
+	struct pattern_match_info *info = user_data;
+	struct bt_ad_pattern *pattern;
+
+	if (!ad_data || !info)
+		return;
+
+	if (info->matched_pattern)
+		return;
+
+	pattern = info->current_pattern;
+
+	if (!pattern || ad_data->type != pattern->type)
+		return;
+
+	if (ad_data->len < pattern->offset + pattern->len)
+		return;
+
+	if (!memcmp(ad_data->data + pattern->offset, pattern->data,
+								pattern->len)) {
+		info->matched_pattern = pattern;
+	}
+}
+
+static void pattern_match(void *data, void *user_data)
+{
+	struct bt_ad_pattern *pattern = data;
+	struct pattern_match_info *info = user_data;
+
+	if (!pattern || !info)
+		return;
+
+	if (info->matched_pattern)
+		return;
+
+	info->current_pattern = pattern;
+
+	bt_ad_foreach_data(info->ad, pattern_ad_data_match, info);
+}
+
+struct bt_ad_pattern *bt_ad_pattern_match(struct bt_ad *ad,
+							struct queue *patterns)
+{
+	struct pattern_match_info info;
+
+	if (!ad || queue_isempty(patterns))
+		return NULL;
+
+	info.ad = ad;
+	info.matched_pattern = NULL;
+	info.current_pattern = NULL;
+
+	queue_foreach(patterns, pattern_match, &info);
+
+	return info.matched_pattern;
 }
