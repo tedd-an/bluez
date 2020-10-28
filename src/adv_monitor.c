@@ -29,14 +29,11 @@
 #include "device.h"
 #include "log.h"
 #include "src/error.h"
-#include "src/shared/ad.h"
 #include "src/shared/mgmt.h"
 #include "src/shared/queue.h"
 #include "src/shared/util.h"
 
 #include "adv_monitor.h"
-
-static void monitor_device_free(void *data);
 
 #define ADV_MONITOR_INTERFACE		"org.bluez.AdvertisementMonitor1"
 #define ADV_MONITOR_MGR_INTERFACE	"org.bluez.AdvertisementMonitorManager1"
@@ -84,13 +81,6 @@ enum monitor_state {
 	MONITOR_STATE_HONORED,	/* Accepted by kernel */
 };
 
-struct pattern {
-	uint8_t ad_type;
-	uint8_t offset;
-	uint8_t length;
-	uint8_t value[BT_AD_MAX_DATA_LEN];
-};
-
 struct adv_monitor {
 	struct adv_monitor_app *app;
 	GDBusProxy *proxy;
@@ -105,7 +95,7 @@ struct adv_monitor {
 	struct queue *devices;		/* List of adv_monitor_device objects */
 
 	enum monitor_type type;		/* MONITOR_TYPE_* */
-	struct queue *patterns;
+	struct queue *patterns;		/* List of bt_ad_pattern objects */
 };
 
 /* Some data like last_seen, timer/timeout values need to be maintained
@@ -133,6 +123,20 @@ struct app_match_data {
 	const char *path;
 };
 
+struct adv_content_filter_info {
+	struct bt_ad *ad;
+	struct queue *matched_monitors;	/* List of matched monitors */
+};
+
+struct adv_rssi_filter_info {
+	struct btd_device *device;
+	int8_t rssi;
+};
+
+static void monitor_device_free(void *data);
+static void adv_monitor_filter_rssi(struct adv_monitor *monitor,
+					struct btd_device *device, int8_t rssi);
+
 const struct adv_monitor_type {
 	enum monitor_type type;
 	const char *name;
@@ -155,10 +159,7 @@ static void app_reply_msg(struct adv_monitor_app *app, DBusMessage *reply)
 /* Frees a pattern */
 static void pattern_free(void *data)
 {
-	struct pattern *pattern = data;
-
-	if (!pattern)
-		return;
+	struct bt_ad_pattern *pattern = data;
 
 	free(pattern);
 }
@@ -464,7 +465,7 @@ static bool parse_patterns(struct adv_monitor *monitor, const char *path)
 		int value_len;
 		uint8_t *value;
 		uint8_t offset, ad_type;
-		struct pattern *pattern;
+		struct bt_ad_pattern *pattern;
 		DBusMessageIter struct_iter, value_iter;
 
 		dbus_message_iter_recurse(&array_iter, &struct_iter);
@@ -496,27 +497,9 @@ static bool parse_patterns(struct adv_monitor *monitor, const char *path)
 		dbus_message_iter_get_fixed_array(&value_iter, &value,
 							&value_len);
 
-		// Verify the values
-		if (offset > BT_AD_MAX_DATA_LEN - 1)
-			goto failed;
-
-		if ((ad_type > BT_AD_3D_INFO_DATA &&
-			ad_type != BT_AD_MANUFACTURER_DATA) ||
-			ad_type < BT_AD_FLAGS) {
-			goto failed;
-		}
-
-		if (!value || value_len <= 0 || value_len > BT_AD_MAX_DATA_LEN)
-			goto failed;
-
-		pattern = new0(struct pattern, 1);
+		pattern = bt_ad_pattern_new(ad_type, offset, value_len, value);
 		if (!pattern)
 			goto failed;
-
-		pattern->ad_type = ad_type;
-		pattern->offset = offset;
-		pattern->length = value_len;
-		memcpy(pattern->value, value, pattern->length);
 
 		queue_push_tail(monitor->patterns, pattern);
 
@@ -950,6 +933,104 @@ void btd_adv_monitor_manager_destroy(struct btd_adv_monitor_manager *manager)
 	btd_info(manager->adapter_id, "Destroy Adv Monitor Manager");
 
 	manager_destroy(manager);
+}
+
+/* Processes the content matching based pattern(s) of a monitor */
+static void adv_match_per_monitor(void *data, void *user_data)
+{
+	struct adv_monitor *monitor = data;
+	struct adv_content_filter_info *info = user_data;
+
+	if (!monitor) {
+		error("Unexpected NULL adv_monitor object upon match");
+		return;
+	}
+
+	if (monitor->state != MONITOR_STATE_HONORED)
+		return;
+
+	if (monitor->type == MONITOR_TYPE_OR_PATTERNS &&
+		bt_ad_pattern_match(info->ad, monitor->patterns)) {
+		goto matched;
+	}
+
+	return;
+
+matched:
+	if (!info->matched_monitors)
+		info->matched_monitors = queue_new();
+
+	queue_push_tail(info->matched_monitors, monitor);
+}
+
+/* Processes the content matching for the monitor(s) of an app */
+static void adv_match_per_app(void *data, void *user_data)
+{
+	struct adv_monitor_app *app = data;
+
+	if (!app) {
+		error("Unexpected NULL adv_monitor_app object upon match");
+		return;
+	}
+
+	queue_foreach(app->monitors, adv_match_per_monitor, user_data);
+}
+
+/* Processes the content matching for every app without RSSI filtering and
+ * notifying monitors. The caller is responsible of releasing the memory of the
+ * list but not the ad data.
+ * Returns the list of monitors whose content match the ad data.
+ */
+struct queue *btd_adv_monitor_content_filter(
+				struct btd_adv_monitor_manager *manager,
+				struct bt_ad *ad)
+{
+	struct adv_content_filter_info info;
+
+	if (!manager || !ad)
+		return NULL;
+
+	info.ad = ad;
+	info.matched_monitors = NULL;
+
+	queue_foreach(manager->apps, adv_match_per_app, &info);
+
+	return info.matched_monitors;
+}
+
+/* Wraps adv_monitor_filter_rssi() to processes the content-matched monitor with
+ * RSSI filtering and notifies it on device found/lost event
+ */
+static void monitor_filter_rssi(void *data, void *user_data)
+{
+	struct adv_monitor *monitor = data;
+	struct adv_rssi_filter_info *info = user_data;
+
+	if (!monitor || !info)
+		return;
+
+	adv_monitor_filter_rssi(monitor, info->device, info->rssi);
+}
+
+/* Processes every content-matched monitor with RSSI filtering and notifies on
+ * device found/lost event. The caller is responsible of releasing the memory
+ * of matched_monitors list but not its data.
+ */
+void btd_adv_monitor_notify_monitors(struct btd_adv_monitor_manager *manager,
+					struct btd_device *device, int8_t rssi,
+					struct queue *matched_monitors)
+{
+	struct adv_rssi_filter_info info;
+
+	if (!manager || !device || !matched_monitors ||
+		queue_isempty(matched_monitors)) {
+		return;
+	}
+
+	info.device = device;
+	info.rssi = rssi;
+
+	queue_foreach(matched_monitors, monitor_filter_rssi, &info);
 }
 
 /* Matches a device based on btd_device object */
