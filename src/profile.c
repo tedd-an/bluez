@@ -41,6 +41,8 @@
 #include "profile.h"
 #include "service.h"
 
+#define BTRX_MTU               32767
+
 #define DUN_DEFAULT_CHANNEL	1
 #define SPP_DEFAULT_CHANNEL	3
 #define HSP_HS_DEFAULT_CHANNEL	6
@@ -1358,6 +1360,11 @@ static uint32_t ext_start_servers(struct ext_profile *ext,
 			l2cap->adapter = btd_adapter_ref(adapter);
 			ext->servers = g_slist_append(ext->servers, l2cap);
 			DBG("%s listening on PSM %u", ext->name, psm);
+			if (g_strcmp0(ext->name, "Object Push") == 0) {
+				if (!bt_io_set(io, NULL, BT_IO_OPT_IMTU, BTRX_MTU,
+				    BT_IO_OPT_INVALID))
+					DBG("ERROR bt_io_set Unable to set MTU");
+			}
 		}
 	}
 
