@@ -106,6 +106,7 @@ static void policy_connect(struct policy_data *data,
 {
 	struct btd_profile *profile = btd_service_get_profile(service);
 	struct reconnect_data *reconnect;
+	GSList *l = NULL;
 
 	reconnect = reconnect_find(btd_service_get_device(service));
 	if (reconnect && reconnect->active)
@@ -113,7 +114,9 @@ static void policy_connect(struct policy_data *data,
 
 	DBG("%s profile %s", device_get_path(data->dev), profile->name);
 
-	btd_service_connect(service);
+	l = g_slist_prepend(l, service);
+	btd_device_connect_services(data->dev, l);
+	g_slist_free(l);
 }
 
 static void policy_disconnect(struct policy_data *data,
