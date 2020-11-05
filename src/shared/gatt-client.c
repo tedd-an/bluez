@@ -104,6 +104,9 @@ struct bt_gatt_client {
 
 	struct bt_gatt_request *discovery_req;
 	unsigned int mtu_req_id;
+
+	/* Whether there is a service discovery operation ongoing */
+	bool in_discovery;
 };
 
 struct request {
@@ -380,6 +383,12 @@ static void discovery_op_complete(struct discovery_op *op, bool success,
 								uint8_t err)
 {
 	const struct queue_entry *svc;
+
+	/* Service discovery may be reset due to disconnection */
+	if (!op->client->in_discovery)
+		return;
+
+	op->client->in_discovery = false;
 
 	op->success = success;
 
@@ -1857,6 +1866,9 @@ static void process_service_changed(struct bt_gatt_client *client,
 {
 	struct discovery_op *op;
 
+	if (client->in_discovery)
+		goto fail;
+
 	op = discovery_op_create(client, start_handle, end_handle,
 						service_changed_complete,
 						service_changed_failure);
@@ -1869,6 +1881,7 @@ static void process_service_changed(struct bt_gatt_client *client,
 						discovery_op_ref(op),
 						discovery_op_unref);
 	if (client->discovery_req) {
+		client->in_discovery = true;
 		client->in_svc_chngd = true;
 		return;
 	}
@@ -2057,6 +2070,7 @@ static bool gatt_client_init(struct bt_gatt_client *client, uint16_t mtu)
 		return false;
 	}
 
+	client->in_discovery = true;
 	client->in_init = true;
 
 	return true;
@@ -2080,6 +2094,7 @@ discover:
 	}
 
 done:
+	client->in_discovery = true;
 	client->in_init = true;
 	return true;
 }
@@ -3693,4 +3708,9 @@ int bt_gatt_client_get_security(struct bt_gatt_client *client)
 		return -1;
 
 	return bt_att_get_security(client->att, NULL);
+}
+
+void bt_gatt_client_reset_in_discovery(struct bt_gatt_client *client)
+{
+	client->in_discovery = false;
 }

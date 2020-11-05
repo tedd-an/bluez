@@ -586,6 +586,9 @@ static void gatt_client_cleanup(struct btd_device *device)
 		device->gatt_ready_id = 0;
 	}
 
+	/* Make sure that service discovery is stopped if any is in progress */
+	bt_gatt_client_reset_in_discovery(device->client);
+
 	bt_gatt_client_unref(device->client);
 	device->client = NULL;
 }
