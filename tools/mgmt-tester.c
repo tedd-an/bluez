@@ -18,7 +18,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include <glib.h>
+#include <ell/ell.h>
 
 #include "lib/bluetooth.h"
 #include "lib/hci.h"
@@ -130,7 +130,8 @@ static void read_info_callback(uint8_t status, uint16_t length,
 	tester_print("  Name: %s", rp->name);
 	tester_print("  Short name: %s", rp->short_name);
 
-	if (strcmp(hciemu_get_address(data->hciemu), addr)) {
+	if (!hciemu_get_address(data->hciemu) ||
+			(strcmp(hciemu_get_address(data->hciemu), addr))) {
 		tester_pre_setup_failed();
 		return;
 	}
