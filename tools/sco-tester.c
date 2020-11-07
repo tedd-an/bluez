@@ -17,7 +17,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
-#include <glib.h>
+#include <ell/ell.h>
 
 #include "lib/bluetooth.h"
 #include "lib/sco.h"
@@ -36,7 +36,7 @@ struct test_data {
 	uint16_t mgmt_index;
 	struct hciemu *hciemu;
 	enum hciemu_type hciemu_type;
-	unsigned int io_id;
+	struct l_io *io;
 	bool disable_esco;
 };
 
@@ -196,20 +196,21 @@ static void test_data_free(void *test_data)
 {
 	struct test_data *data = test_data;
 
-	if (data->io_id > 0)
-		g_source_remove(data->io_id);
+	if (data->io) {
+		l_io_destroy(data->io);
+		data->io = NULL;
+	}
 
-	free(data);
+	l_free(data);
 }
 
 #define test_sco_full(name, data, setup, func, _disable_esco) \
 	do { \
 		struct test_data *user; \
-		user = malloc(sizeof(struct test_data)); \
+		user = l_new(struct test_data, 1); \
 		if (!user) \
 			break; \
 		user->hciemu_type = HCIEMU_TYPE_BREDRLE; \
-		user->io_id = 0; \
 		user->test_data = data; \
 		user->disable_esco = _disable_esco; \
 		tester_add_full(name, data, \
@@ -474,17 +475,14 @@ static int connect_sco_sock(struct test_data *data, int sk)
 	return 0;
 }
 
-static gboolean sco_connect_cb(GIOChannel *io, GIOCondition cond,
-							gpointer user_data)
+static bool sco_connect_cb(struct l_io *io, void *user_data)
 {
 	struct test_data *data = tester_get_data();
 	const struct sco_client_data *scodata = data->test_data;
 	int err, sk_err, sk;
 	socklen_t len = sizeof(sk_err);
 
-	data->io_id = 0;
-
-	sk = g_io_channel_unix_get_fd(io);
+	sk = l_io_get_fd(io);
 
 	if (getsockopt(sk, SOL_SOCKET, SO_ERROR, &sk_err, &len) < 0)
 		err = -errno;
@@ -501,13 +499,12 @@ static gboolean sco_connect_cb(GIOChannel *io, GIOCondition cond,
 	else
 		tester_test_passed();
 
-	return FALSE;
+	return false;
 }
 
 static void test_connect(const void *test_data)
 {
 	struct test_data *data = tester_get_data();
-	GIOChannel *io;
 	int sk;
 
 	sk = create_sco_sock(data);
@@ -522,12 +519,10 @@ static void test_connect(const void *test_data)
 		return;
 	}
 
-	io = g_io_channel_unix_new(sk);
-	g_io_channel_set_close_on_unref(io, TRUE);
+	data->io = l_io_new(sk);
+	l_io_set_close_on_destroy(data->io, true);
 
-	data->io_id = g_io_add_watch(io, G_IO_OUT, sco_connect_cb, NULL);
-
-	g_io_channel_unref(io);
+	l_io_set_write_handler(data->io, sco_connect_cb, NULL, NULL);
 
 	tester_print("Connect in progress");
 }
