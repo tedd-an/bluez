@@ -18,8 +18,6 @@
 #include <errno.h>
 #include <stdbool.h>
 
-#include <glib.h>
-
 #include "lib/bluetooth.h"
 #include "lib/hci.h"
 #include "lib/mgmt.h"
