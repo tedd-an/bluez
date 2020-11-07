@@ -18,7 +18,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
-#include <glib.h>
+#include <ell/ell.h>
 
 #include "lib/bluetooth.h"
 #include "lib/rfcomm.h"
@@ -35,9 +35,9 @@ struct test_data {
 	struct mgmt *mgmt;
 	uint16_t mgmt_index;
 	struct hciemu *hciemu;
+	struct l_io *io;
 	enum hciemu_type hciemu_type;
 	const void *test_data;
-	unsigned int io_id;
 	uint16_t conn_handle;
 };
 
@@ -192,9 +192,9 @@ static void test_post_teardown(const void *test_data)
 {
 	struct test_data *data = tester_get_data();
 
-	if (data->io_id > 0) {
-		g_source_remove(data->io_id);
-		data->io_id = 0;
+	if (data->io) {
+		l_io_destroy(data->io);
+		data->io = NULL;
 	}
 
 	hciemu_unref(data->hciemu);
@@ -395,8 +395,7 @@ static int connect_rfcomm_sock(int sk, const bdaddr_t *bdaddr, uint8_t channel)
 	return 0;
 }
 
-static gboolean client_received_data(GIOChannel *io, GIOCondition cond,
-							gpointer user_data)
+static bool client_received_data(struct l_io *io, void *user_data)
 {
 	struct test_data *data = tester_get_data();
 	const struct rfcomm_client_data *cli = data->test_data;
@@ -404,7 +403,7 @@ static gboolean client_received_data(GIOChannel *io, GIOCondition cond,
 	ssize_t ret;
 	char buf[248];
 
-	sk = g_io_channel_unix_get_fd(io);
+	sk = l_io_get_fd(io);
 
 	ret = read(sk, buf, cli->data_len);
 	if (cli->data_len != ret) {
@@ -420,8 +419,29 @@ static gboolean client_received_data(GIOChannel *io, GIOCondition cond,
 	return false;
 }
 
-static gboolean rc_connect_cb(GIOChannel *io, GIOCondition cond,
-							gpointer user_data)
+static void rc_disconnect_cb(struct l_io *io, void *user_data)
+{
+	struct test_data *data = tester_get_data();
+	const struct rfcomm_client_data *cli = data->test_data;
+	socklen_t len = sizeof(int);
+	int sk, err, sk_err;
+
+	tester_print("Disconnected");
+
+	sk = l_io_get_fd(io);
+
+	if (getsockopt(sk, SOL_SOCKET, SO_ERROR, &sk_err, &len) < 0)
+		err = -errno;
+	else
+		err = -sk_err;
+
+	if (cli->expected_connect_err && err == cli->expected_connect_err)
+		tester_test_passed();
+	else
+		tester_test_failed();
+}
+
+static bool rc_connect_cb(struct l_io *io, void *user_data)
 {
 	struct test_data *data = tester_get_data();
 	const struct rfcomm_client_data *cli = data->test_data;
@@ -430,9 +450,7 @@ static gboolean rc_connect_cb(GIOChannel *io, GIOCondition cond,
 
 	tester_print("Connected");
 
-	data->io_id = 0;
-
-	sk = g_io_channel_unix_get_fd(io);
+	sk = l_io_get_fd(io);
 
 	if (getsockopt(sk, SOL_SOCKET, SO_ERROR, &sk_err, &len) < 0)
 		err = -errno;
@@ -458,7 +476,7 @@ static gboolean rc_connect_cb(GIOChannel *io, GIOCondition cond,
 
 		return false;
 	} else if (cli->read_data) {
-		g_io_add_watch(io, G_IO_IN, client_received_data, NULL);
+		l_io_set_read_handler(io, client_received_data, NULL, NULL);
 		bthost_send_rfcomm_data(hciemu_client_get_host(data->hciemu),
 						data->conn_handle,
 						cli->client_channel,
@@ -535,7 +553,6 @@ static void test_connect(const void *test_data)
 	struct bthost *bthost = hciemu_client_get_host(data->hciemu);
 	const struct rfcomm_client_data *cli = data->test_data;
 	const uint8_t *client_addr, *master_addr;
-	GIOChannel *io;
 	int sk;
 
 	bthost_add_l2cap_server(bthost, 0x0003, NULL, NULL, NULL);
@@ -554,18 +571,19 @@ static void test_connect(const void *test_data)
 		return;
 	}
 
-	io = g_io_channel_unix_new(sk);
-	g_io_channel_set_close_on_unref(io, TRUE);
+	data->io = l_io_new(sk);
+	l_io_set_close_on_destroy(data->io, true);
+	l_io_set_disconnect_handler(data->io, rc_disconnect_cb, NULL, NULL);
 
-	data->io_id = g_io_add_watch(io, G_IO_OUT, rc_connect_cb, NULL);
-
-	g_io_channel_unref(io);
+	if (!l_io_set_write_handler(data->io, rc_connect_cb, NULL, NULL)) {
+		tester_test_failed();
+		return;
+	}
 
 	tester_print("Connect in progress %d", sk);
 }
 
-static gboolean server_received_data(GIOChannel *io, GIOCondition cond,
-							gpointer user_data)
+static bool server_received_data(struct l_io *io, void *user_data)
 {
 	struct test_data *data = tester_get_data();
 	const struct rfcomm_server_data *srv = data->test_data;
@@ -573,7 +591,7 @@ static gboolean server_received_data(GIOChannel *io, GIOCondition cond,
 	ssize_t ret;
 	int sk;
 
-	sk = g_io_channel_unix_get_fd(io);
+	sk = l_io_get_fd(io);
 
 	ret = read(sk, buf, srv->data_len);
 	if (ret != srv->data_len) {
@@ -589,16 +607,14 @@ static gboolean server_received_data(GIOChannel *io, GIOCondition cond,
 	return false;
 }
 
-static gboolean rfcomm_listen_cb(GIOChannel *io, GIOCondition cond,
-							gpointer user_data)
+static bool rfcomm_listen_cb(struct l_io *io, void *user_data)
 {
 	struct test_data *data = tester_get_data();
 	const struct rfcomm_server_data *srv = data->test_data;
 	int sk, new_sk;
 
-	data->io_id = 0;
 
-	sk = g_io_channel_unix_get_fd(io);
+	sk = l_io_get_fd(io);
 
 	new_sk = accept(sk, NULL, NULL);
 	if (new_sk < 0) {
@@ -616,15 +632,12 @@ static gboolean rfcomm_listen_cb(GIOChannel *io, GIOCondition cond,
 		close(new_sk);
 		return false;
 	} else if (srv->read_data) {
-		GIOChannel *new_io;
+		struct l_io *new_io;
 
-		new_io = g_io_channel_unix_new(new_sk);
-		g_io_channel_set_close_on_unref(new_io, TRUE);
+		new_io = l_io_new(new_sk);
+		l_io_set_close_on_destroy(new_io, true);
+		l_io_set_read_handler(new_io, server_received_data, NULL, NULL);
 
-		data->io_id = g_io_add_watch(new_io, G_IO_IN,
-						server_received_data, NULL);
-
-		g_io_channel_unref(new_io);
 		return false;
 	}
 
@@ -677,7 +690,6 @@ static void test_server(const void *test_data)
 	const struct rfcomm_server_data *srv = data->test_data;
 	const uint8_t *master_addr;
 	struct bthost *bthost;
-	GIOChannel *io;
 	int sk;
 
 	master_addr = hciemu_get_master_bdaddr(data->hciemu);
@@ -696,11 +708,10 @@ static void test_server(const void *test_data)
 		return;
 	}
 
-	io = g_io_channel_unix_new(sk);
-	g_io_channel_set_close_on_unref(io, TRUE);
+	data->io = l_io_new(sk);
+	l_io_set_close_on_destroy(data->io, true);
 
-	data->io_id = g_io_add_watch(io, G_IO_IN, rfcomm_listen_cb, NULL);
-	g_io_channel_unref(io);
+	l_io_set_read_handler(data->io, rfcomm_listen_cb, NULL, NULL);
 
 	tester_print("Listening for connections");
 
@@ -713,12 +724,11 @@ static void test_server(const void *test_data)
 #define test_rfcomm(name, data, setup, func) \
 	do { \
 		struct test_data *user; \
-		user = malloc(sizeof(struct test_data)); \
+		user = l_new(struct test_data, 1);	\
 		if (!user) \
 			break; \
 		user->hciemu_type = HCIEMU_TYPE_BREDR; \
 		user->test_data = data; \
-		user->io_id = 0; \
 		tester_add_full(name, data, \
 				test_pre_setup, setup, func, NULL, \
 				test_post_teardown, 2, user, test_data_free); \
