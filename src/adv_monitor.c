@@ -237,8 +237,9 @@ static void app_disconnect_cb(DBusConnection *conn, void *user_data)
 {
 	struct adv_monitor_app *app = user_data;
 
-	btd_info(app->manager->adapter_id, "Adv Monitor app %s disconnected "
-			"from D-Bus", app->owner);
+	btd_info(app->manager->adapter_id,
+			"Adv Monitor app %s disconnected from D-Bus",
+			app->owner);
 	if (app && queue_remove(app->manager->apps, app))
 		app_destroy(app);
 }
@@ -312,8 +313,9 @@ static bool parse_monitor_type(struct adv_monitor *monitor, const char *path)
 	uint16_t adapter_id = monitor->app->manager->adapter_id;
 
 	if (!g_dbus_proxy_get_property(monitor->proxy, "Type", &iter)) {
-		btd_error(adapter_id, "Failed to retrieve property Type from "
-			"the Adv Monitor at path %s", path);
+		btd_error(adapter_id,
+				"Failed to retrieve property Type from the "
+				"Adv Monitor at path %s", path);
 		return false;
 	}
 
@@ -330,8 +332,9 @@ static bool parse_monitor_type(struct adv_monitor *monitor, const char *path)
 	}
 
 failed:
-	btd_error(adapter_id, "Invalid argument of property Type of the Adv "
-			"Monitor at path %s", path);
+	btd_error(adapter_id,
+			"Invalid argument of property Type of the Adv Monitor "
+			"at path %s", path);
 
 	return false;
 }
@@ -431,8 +434,9 @@ failed:
 	monitor->high_rssi_timeout = ADV_MONITOR_UNSET_TIMER;
 	monitor->low_rssi_timeout = ADV_MONITOR_UNSET_TIMER;
 
-	btd_error(adapter_id, "Invalid argument of property "
-			"RSSIThresholdsAndTimers of the Adv Monitor at path %s",
+	btd_error(adapter_id,
+			"Invalid argument of property RSSIThresholdsAndTimers "
+			"of the Adv Monitor at path %s",
 			path);
 
 	return false;
@@ -447,8 +451,9 @@ static bool parse_patterns(struct adv_monitor *monitor, const char *path)
 	uint16_t adapter_id = monitor->app->manager->adapter_id;
 
 	if (!g_dbus_proxy_get_property(monitor->proxy, "Patterns", &array)) {
-		btd_error(adapter_id, "Failed to retrieve property Patterns "
-				"from the Adv Monitor at path %s", path);
+		btd_error(adapter_id,
+				"Failed to retrieve property Patterns from the "
+				"Adv Monitor at path %s", path);
 		return false;
 	}
 
@@ -556,8 +561,9 @@ static void add_adv_patterns_monitor_cb(uint8_t status, uint16_t length,
 	uint16_t adapter_id = monitor->app->manager->adapter_id;
 
 	if (status != MGMT_STATUS_SUCCESS || !param) {
-		btd_error(adapter_id, "Failed to Add Adv Patterns Monitor "
-				"with status 0x%02x", status);
+		btd_error(adapter_id,
+				"Failed to Add Adv Patterns Monitor with status"
+				" 0x%02x", status);
 		monitor_release(monitor, NULL);
 		return;
 	}
@@ -610,15 +616,17 @@ static void monitor_proxy_added_cb(GDBusProxy *proxy, void *user_data)
 	}
 
 	if (queue_find(app->monitors, monitor_match, proxy)) {
-		btd_error(adapter_id, "Adv Monitor proxy already exists with "
-				"path %s", path);
+		btd_error(adapter_id,
+				"Adv Monitor proxy already exists with path %s",
+				path);
 		return;
 	}
 
 	monitor = monitor_new(app, proxy);
 	if (!monitor) {
-		btd_error(adapter_id, "Failed to allocate an Adv Monitor for "
-				"the object at %s", path);
+		btd_error(adapter_id,
+				"Failed to allocate an Adv Monitor for the "
+				"object at %s", path);
 		return;
 	}
 
@@ -852,8 +860,9 @@ static DBusMessage *unregister_monitor(DBusConnection *conn,
 	queue_remove(manager->apps, app);
 	app_destroy(app);
 
-	btd_info(manager->adapter_id, "Path %s removed along with Adv Monitor "
-			"app %s", match.path, match.owner);
+	btd_info(manager->adapter_id,
+			"Path %s removed along with Adv Monitor app %s",
+			match.path, match.owner);
 
 	return dbus_message_new_method_return(msg);
 }
@@ -972,8 +981,8 @@ static void adv_monitor_removed_callback(uint16_t index, uint16_t length,
 	const uint16_t adapter_id = manager->adapter_id;
 
 	if (length < sizeof(*ev)) {
-		btd_error(adapter_id, "Wrong size of Adv Monitor Removed "
-				"event");
+		btd_error(adapter_id,
+				"Wrong size of Adv Monitor Removed event");
 		return;
 	}
 
@@ -1044,8 +1053,9 @@ static void read_adv_monitor_features_cb(uint8_t status, uint16_t length,
 	struct btd_adv_monitor_manager *manager = user_data;
 
 	if (status != MGMT_STATUS_SUCCESS || !param) {
-		btd_error(manager->adapter_id, "Failed to Read Adv Monitor "
-				"Features with status 0x%02x", status);
+		btd_error(manager->adapter_id,
+				"Failed to Read Adv Monitor Features with "
+				"status 0x%02x", status);
 		return;
 	}
 
@@ -1387,8 +1397,8 @@ static void adv_monitor_filter_rssi(struct adv_monitor *monitor,
 	if (!dev) {
 		dev = monitor_device_create(monitor, device);
 		if (!dev) {
-			btd_error(adapter_id, "Failed to create Adv Monitor "
-					      "device object.");
+			btd_error(adapter_id,
+				"Failed to create Adv Monitor device object.");
 			return;
 		}
 	}
