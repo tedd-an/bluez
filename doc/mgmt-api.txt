@@ -3131,7 +3131,7 @@ Read Controller Capabilities Command
 		0x01		Flags
 		0x02		Max Encryption Key Size (BR/EDR)
 		0x03		Max Encryption Key Size (LE)
-		0x04		Supported Tx Power (LE)
+		0x04		Supported Min/Max TX Power (LE)
 
 	Flags (data type 0x01)
 
