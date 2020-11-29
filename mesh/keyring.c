@@ -51,7 +51,7 @@ bool keyring_put_net_key(struct mesh_node *node, uint16_t net_idx,
 
 	snprintf(key_file, PATH_MAX, "%s%s", node_path, net_key_dir);
 
-	if (!mkdir(key_file, 0755))
+	if (mkdir(key_file, 0755) != 0)
 		return false;
 
 	snprintf(key_file, PATH_MAX, "%s%s/%3.3x", node_path, net_key_dir,
@@ -88,7 +88,7 @@ bool keyring_put_app_key(struct mesh_node *node, uint16_t app_idx,
 
 	snprintf(key_file, PATH_MAX, "%s%s", node_path, app_key_dir);
 
-	if (!mkdir(key_file, 0755))
+	if (mkdir(key_file, 0755) != 0)
 		return false;
 
 	snprintf(key_file, PATH_MAX, "%s%s/%3.3x", node_path, app_key_dir,
@@ -207,7 +207,7 @@ bool keyring_put_remote_dev_key(struct mesh_node *node, uint16_t unicast,
 
 	snprintf(key_file, PATH_MAX, "%s%s", node_path, dev_key_dir);
 
-	if (!mkdir(key_file, 0755))
+	if (mkdir(key_file, 0755) != 0)
 		return false;
 
 	for (i = 0; i < count; i++) {
