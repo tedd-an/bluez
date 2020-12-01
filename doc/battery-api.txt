@@ -15,12 +15,10 @@ Properties	byte Percentage [readonly]
 
 		string Source [readonly, optional, experimental]
 
-			Describes where the battery information comes from
-			This property is informational only and may be useful
-			for debugging purposes.
-			Providers from BatteryProvider1 may make use of this
-			property to indicate where the battery report comes from
-			(e.g. "HFP 1.7", "HID", or the profile UUID).
+			Describes where the battery information comes from.
+			Providers may provide the source information in the form
+			of the profile UUID where the battery information is
+			reported.
 
 
 Battery Provider Manager hierarchy
@@ -61,8 +59,8 @@ Object path	{provider_root}/{unique battery object path}
 
 Properties	Objects provided on this interface contain the same properties
 		as org.bluez.Battery1 interface. Additionally, this interface
-		needs to have the Device property indicating the object path
-		of the device this battery provides.
+		needs to have a Device property indicating the object path the
+		battery information is provided for.
 
 		object Device [readonly]
 
