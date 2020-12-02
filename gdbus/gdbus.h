@@ -210,8 +210,23 @@ struct GDBusSecurityTable {
 void g_dbus_set_flags(int flags);
 int g_dbus_get_flags(void);
 
+/* Note that, when new interface is registered, InterfacesAdded signal is
+ * emitted. This signal is by default emitted at root path "/" registered
+ * while registering a client using g_dbus_client_new(). If this behavior
+ * is undesired, use g_dbus_register_interface_full() with a desired root
+ * path to ensure InterfacesAdded / InterfacesRemoved signals get emitted
+ * at the correct path.
+ */
 gboolean g_dbus_register_interface(DBusConnection *connection,
 					const char *path, const char *name,
+					const GDBusMethodTable *methods,
+					const GDBusSignalTable *signals,
+					const GDBusPropertyTable *properties,
+					void *user_data,
+					GDBusDestroyFunction destroy);
+gboolean g_dbus_register_interface_full(DBusConnection *connection,
+					const char *path, const char *name,
+					const char *root_path,
 					const GDBusMethodTable *methods,
 					const GDBusSignalTable *signals,
 					const GDBusPropertyTable *properties,

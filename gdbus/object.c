@@ -38,6 +38,7 @@ struct generic_data {
 	unsigned int refcount;
 	DBusConnection *conn;
 	char *path;
+	char *root_path;
 	GSList *interfaces;
 	GSList *objects;
 	GSList *added;
@@ -551,9 +552,10 @@ static void emit_interfaces_added(struct generic_data *data)
 	if (root == NULL || data == root)
 		return;
 
-	signal = dbus_message_new_signal(root->path,
-					DBUS_INTERFACE_OBJECT_MANAGER,
-					"InterfacesAdded");
+	signal = dbus_message_new_signal(
+				data->root_path ? data->root_path : root->path,
+				DBUS_INTERFACE_OBJECT_MANAGER,
+				"InterfacesAdded");
 	if (signal == NULL)
 		return;
 
@@ -953,9 +955,10 @@ static void emit_interfaces_removed(struct generic_data *data)
 	if (root == NULL || data == root)
 		return;
 
-	signal = dbus_message_new_signal(root->path,
-					DBUS_INTERFACE_OBJECT_MANAGER,
-					"InterfacesRemoved");
+	signal = dbus_message_new_signal(
+				data->root_path ? data->root_path : root->path,
+				DBUS_INTERFACE_OBJECT_MANAGER,
+				"InterfacesRemoved");
 	if (signal == NULL)
 		return;
 
@@ -1026,6 +1029,7 @@ static void generic_unregister(DBusConnection *connection, void *user_data)
 
 	dbus_connection_unref(data->conn);
 	g_free(data->introspect);
+	g_free(data->root_path);
 	g_free(data->path);
 	g_free(data);
 }
@@ -1222,7 +1226,8 @@ done:
 }
 
 static struct generic_data *object_path_ref(DBusConnection *connection,
-							const char *path)
+							const char *path,
+							const char *root_path)
 {
 	struct generic_data *data;
 
@@ -1237,6 +1242,8 @@ static struct generic_data *object_path_ref(DBusConnection *connection,
 	data = g_new0(struct generic_data, 1);
 	data->conn = dbus_connection_ref(connection);
 	data->path = g_strdup(path);
+	if (root_path)
+		data->root_path = g_strdup(root_path);
 	data->refcount = 1;
 
 	data->introspect = g_strdup(DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE "<node></node>");
@@ -1245,6 +1252,7 @@ static struct generic_data *object_path_ref(DBusConnection *connection,
 						&generic_table, data)) {
 		dbus_connection_unref(data->conn);
 		g_free(data->path);
+		g_free(data->root_path);
 		g_free(data->introspect);
 		g_free(data);
 		return NULL;
@@ -1331,6 +1339,19 @@ gboolean g_dbus_register_interface(DBusConnection *connection,
 					void *user_data,
 					GDBusDestroyFunction destroy)
 {
+	return g_dbus_register_interface_full(connection, path, name, NULL,
+			methods, signals, properties, user_data, destroy);
+}
+
+gboolean g_dbus_register_interface_full(DBusConnection *connection,
+					const char *path, const char *name,
+					const char *root_path,
+					const GDBusMethodTable *methods,
+					const GDBusSignalTable *signals,
+					const GDBusPropertyTable *properties,
+					void *user_data,
+					GDBusDestroyFunction destroy)
+{
 	struct generic_data *data;
 
 	if (!dbus_validate_path(path, NULL)) {
@@ -1343,7 +1364,7 @@ gboolean g_dbus_register_interface(DBusConnection *connection,
 		return FALSE;
 	}
 
-	data = object_path_ref(connection, path);
+	data = object_path_ref(connection, path, root_path);
 	if (data == NULL)
 		return FALSE;
 
@@ -1811,7 +1832,7 @@ gboolean g_dbus_attach_object_manager(DBusConnection *connection)
 {
 	struct generic_data *data;
 
-	data = object_path_ref(connection, "/");
+	data = object_path_ref(connection, "/", NULL);
 	if (data == NULL)
 		return FALSE;
 
