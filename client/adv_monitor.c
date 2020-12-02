@@ -602,8 +602,9 @@ void adv_monitor_add_monitor(DBusConnection *conn, char *type,
 	adv_monitor->patterns = patterns;
 	adv_monitor->path = g_strdup_printf("%s/%hhu", ADV_MONITOR_APP_PATH,
 								adv_mon_idx);
-	if (g_dbus_register_interface(conn, adv_monitor->path,
+	if (g_dbus_register_interface_full(conn, adv_monitor->path,
 					ADV_MONITOR_INTERFACE,
+					ADV_MONITOR_APP_PATH,
 					adv_monitor_methods, NULL,
 					adv_monitor_props, adv_monitor,
 					free_adv_monitor) == FALSE) {
