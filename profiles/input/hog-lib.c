@@ -95,6 +95,8 @@ struct bt_hog {
 	struct queue		*bas;
 	GSList			*instances;
 	struct queue		*gatt_op;
+	uint8_t			report_map[HOG_REPORT_MAP_MAX_SIZE];
+	ssize_t			report_map_len;
 };
 
 struct report {
@@ -275,6 +277,8 @@ static void find_included(struct bt_hog *hog, GAttrib *attrib,
 	g_attrib_cancel(attrib, id);
 	free(req);
 }
+
+static void uhid_create(struct bt_hog *hog);
 
 static void report_value_cb(const guint8 *pdu, guint16 len, gpointer user_data)
 {
@@ -924,57 +928,17 @@ static char *item2string(char *str, uint8_t *buf, uint8_t len)
 	return str;
 }
 
-static void report_map_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
-							gpointer user_data)
+static void uhid_create(struct bt_hog *hog)
 {
-	struct gatt_request *req = user_data;
-	struct bt_hog *hog = req->user_data;
-	uint8_t value[HOG_REPORT_MAP_MAX_SIZE];
 	struct uhid_event ev;
-	ssize_t vlen;
-	char itemstr[20]; /* 5x3 (data) + 4 (continuation) + 1 (null) */
-	int i, err;
 	GError *gerr = NULL;
+	int i, err;
 
-	destroy_gatt_req(req);
-
-	DBG("HoG inspecting report map");
-
-	if (status != 0) {
-		error("Report Map read failed: %s", att_ecode2str(status));
+	if (!hog->report_map_len) {
+		warn("Failed to initiate UHID_CREATE without report map");
 		return;
 	}
 
-	vlen = dec_read_resp(pdu, plen, value, sizeof(value));
-	if (vlen < 0) {
-		error("ATT protocol error");
-		return;
-	}
-
-	DBG("Report MAP:");
-	for (i = 0; i < vlen;) {
-		ssize_t ilen = 0;
-		bool long_item = false;
-
-		if (get_descriptor_item_info(&value[i], vlen - i, &ilen,
-								&long_item)) {
-			/* Report ID is short item with prefix 100001xx */
-			if (!long_item && (value[i] & 0xfc) == 0x84)
-				hog->has_report_id = TRUE;
-
-			DBG("\t%s", item2string(itemstr, &value[i], ilen));
-
-			i += ilen;
-		} else {
-			error("Report Map parsing failed at %d", i);
-
-			/* Just print remaining items at once and break */
-			DBG("\t%s", item2string(itemstr, &value[i], vlen - i));
-			break;
-		}
-	}
-
-	/* create uHID device */
 	memset(&ev, 0, sizeof(ev));
 	ev.type = UHID_CREATE;
 
@@ -1004,8 +968,8 @@ static void report_map_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 	ev.u.create.version = hog->version;
 	ev.u.create.country = hog->bcountrycode;
 	ev.u.create.bus = BUS_BLUETOOTH;
-	ev.u.create.rd_data = value;
-	ev.u.create.rd_size = vlen;
+	ev.u.create.rd_data = hog->report_map;
+	ev.u.create.rd_size = hog->report_map_len;
 
 	err = bt_uhid_send(hog->uhid, &ev);
 	if (err < 0) {
@@ -1018,6 +982,62 @@ static void report_map_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 	bt_uhid_register(hog->uhid, UHID_SET_REPORT, set_report, hog);
 
 	hog->uhid_created = true;
+}
+
+static void report_map_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
+							gpointer user_data)
+{
+	struct gatt_request *req = user_data;
+	struct bt_hog *hog = req->user_data;
+	ssize_t vlen;
+	char itemstr[20]; /* 5x3 (data) + 4 (continuation) + 1 (null) */
+	int i;
+
+	destroy_gatt_req(req);
+
+	DBG("HoG inspecting report map");
+
+	if (status != 0) {
+		error("Report Map read failed: %s", att_ecode2str(status));
+		return;
+	}
+
+	vlen = dec_read_resp(pdu, plen, hog->report_map,
+						sizeof(hog->report_map));
+	if (vlen < 0) {
+		error("ATT protocol error");
+		return;
+	}
+
+	hog->report_map_len = vlen;
+
+	DBG("Report MAP:");
+	for (i = 0; i < vlen;) {
+		ssize_t ilen = 0;
+		bool long_item = false;
+
+		if (get_descriptor_item_info(&hog->report_map[i], vlen - i,
+						&ilen, &long_item)) {
+			/* Report ID is short item with prefix 100001xx */
+			if (!long_item && (hog->report_map[i] & 0xfc) == 0x84)
+				hog->has_report_id = TRUE;
+
+			DBG("\t%s", item2string(itemstr, &hog->report_map[i],
+									ilen));
+
+			i += ilen;
+		} else {
+			error("Report Map parsing failed at %d", i);
+
+			/* Just print remaining items at once and break */
+			DBG("\t%s", item2string(itemstr, &hog->report_map[i],
+						vlen - i));
+			break;
+		}
+	}
+
+	/* create uHID device */
+	uhid_create(hog);
 
 	DBG("HoG created uHID device");
 }
@@ -1602,6 +1622,12 @@ bool bt_hog_attach(struct bt_hog *hog, void *gatt)
 		bt_hog_attach(instance, gatt);
 	}
 
+	/* Try to initiate UHID_CREATE if we already have the report map to
+	 * avoid re-reading the report map from the peer device.
+	 */
+	if (hog->report_map_len > 0)
+		uhid_create(hog);
+
 	if (!hog->uhid_created) {
 		DBG("HoG discovering characteristics");
 		if (hog->attr)
@@ -1625,6 +1651,29 @@ bool bt_hog_attach(struct bt_hog *hog, void *gatt)
 	}
 
 	return true;
+}
+
+static void uhid_destroy(struct bt_hog *hog)
+{
+	int err;
+	struct uhid_event ev;
+
+	if (!hog->uhid_created)
+		return;
+
+	bt_uhid_unregister_all(hog->uhid);
+
+	memset(&ev, 0, sizeof(ev));
+	ev.type = UHID_DESTROY;
+
+	err = bt_uhid_send(hog->uhid, &ev);
+
+	if (err < 0) {
+		error("bt_uhid_send: %s", strerror(-err));
+		return;
+	}
+
+	hog->uhid_created = false;
 }
 
 void bt_hog_detach(struct bt_hog *hog)
@@ -1660,6 +1709,7 @@ void bt_hog_detach(struct bt_hog *hog)
 	queue_foreach(hog->gatt_op, (void *) cancel_gatt_req, NULL);
 	g_attrib_unref(hog->attrib);
 	hog->attrib = NULL;
+	uhid_destroy(hog);
 }
 
 int bt_hog_set_control_point(struct bt_hog *hog, bool suspend)
