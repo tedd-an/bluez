@@ -8649,7 +8649,8 @@ static int adapter_register(struct btd_adapter *adapter)
 	adapter->adv_manager = btd_adv_manager_new(adapter, adapter->mgmt);
 
 	if (g_dbus_get_flags() & G_DBUS_FLAG_ENABLE_EXPERIMENTAL) {
-		if (adapter->supported_settings & MGMT_SETTING_LE) {
+		if (adapter->supported_settings & MGMT_SETTING_LE &&
+			btd_has_kernel_features(KERNEL_ADV_MONITOR_CMDS)) {
 			adapter->adv_monitor_manager =
 				btd_adv_monitor_manager_create(adapter,
 								adapter->mgmt);
@@ -8661,7 +8662,7 @@ static int adapter_register(struct btd_adapter *adapter)
 			}
 		} else {
 			btd_info(adapter->dev_id, "Adv Monitor Manager "
-					"skipped, LE unavailable");
+					"skipped, kernel or LE unavailable");
 		}
 	}
 
@@ -9720,6 +9721,10 @@ static void read_commands_complete(uint8_t status, uint16_t length,
 		case MGMT_OP_READ_CONTROLLER_CAP:
 			DBG("kernel supports controller cap command");
 			kernel_features |= KERNEL_HAS_CONTROLLER_CAP_CMD;
+			break;
+		case MGMT_OP_ADD_ADV_PATTERNS_MONITOR:
+			DBG("kernel supports adv monitor commands");
+			kernel_features |= KERNEL_ADV_MONITOR_CMDS;
 			break;
 		default:
 			break;

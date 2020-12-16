@@ -237,6 +237,7 @@ enum kernel_features {
 	KERNEL_HAS_RESUME_EVT		= 1 << 4,
 	KERNEL_HAS_EXT_ADV_ADD_CMDS	= 1 << 5,
 	KERNEL_HAS_CONTROLLER_CAP_CMD	= 1 << 6,
+	KERNEL_ADV_MONITOR_CMDS		= 1 << 7,
 };
 
 bool btd_has_kernel_features(uint32_t feature);
