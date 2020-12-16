@@ -524,6 +524,7 @@ static const char *test_table[] = {
 	"rfcomm-tester",
 	"sco-tester",
 	"bnep-tester",
+	"userchan-tester",
 	"check-selftest",
 	"tools/mgmt-tester",
 	"tools/smp-tester",
@@ -531,6 +532,7 @@ static const char *test_table[] = {
 	"tools/rfcomm-tester",
 	"tools/sco-tester",
 	"tools/bnep-tester",
+	"tools/userchan-tester",
 	"tools/check-selftest",
 	NULL
 };
