@@ -588,14 +588,15 @@ static struct mgmt_tlv *mgmt_tlv_new(uint16_t type, uint8_t length,
 	return entry;
 }
 
-static void mgmt_tlv_free(struct mgmt_tlv *entry)
+static void mgmt_tlv_free(void *data)
 {
+	struct mgmt_tlv *entry = data;
 	free(entry);
 }
 
 void mgmt_tlv_list_free(struct mgmt_tlv_list *tlv_list)
 {
-	queue_destroy(tlv_list->tlv_queue, NULL);
+	queue_destroy(tlv_list->tlv_queue, mgmt_tlv_free);
 	free(tlv_list);
 }
 
