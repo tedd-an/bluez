@@ -1238,6 +1238,14 @@ void btd_adapter_remove_device(struct btd_adapter *adapter,
 {
 	GList *l;
 
+	/* Test if adapter is or will be powered off.
+	 * This is to prevent removing the device information only on user
+	 * space, but failing to do so on the kernel.
+	 */
+	if (!(adapter->current_settings & MGMT_SETTING_POWERED) ||
+			(adapter->pending_settings & MGMT_SETTING_POWERED))
+		return;
+
 	adapter->connect_list = g_slist_remove(adapter->connect_list, dev);
 
 	adapter->devices = g_slist_remove(adapter->devices, dev);
