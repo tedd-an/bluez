@@ -50,6 +50,24 @@ static bool match_bound_key(const void *a, const void *b)
 	return key->net_idx == idx;
 }
 
+void finish_app_key(void *a, void *b)
+{
+	struct mesh_app_key *key = a;
+	uint16_t net_idx = L_PTR_TO_UINT(b);
+
+	if (key->net_idx != net_idx)
+		return;
+
+	if (key->new_key_aid == NET_NID_INVALID)
+		return;
+
+	key->key_aid = key->new_key_aid;
+
+	key->new_key_aid = NET_NID_INVALID;
+
+	memcpy(key->key, key->new_key, 16);
+}
+
 static struct mesh_app_key *app_key_new(void)
 {
 	struct mesh_app_key *key = l_new(struct mesh_app_key, 1);

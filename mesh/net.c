@@ -2600,6 +2600,8 @@ static int key_refresh_finish(struct mesh_net *net, uint16_t idx)
 
 	l_queue_foreach(net->friends, frnd_kr_phase3, net);
 
+	l_queue_foreach(net->app_keys, finish_app_key, L_UINT_TO_PTR(idx));
+
 	if (!mesh_config_net_key_set_phase(node_config_get(net->node), idx,
 							KEY_REFRESH_PHASE_NONE))
 		return MESH_STATUS_STORAGE_FAIL;
