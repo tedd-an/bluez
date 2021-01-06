@@ -517,6 +517,7 @@ static void adapter_stop(struct btd_adapter *adapter);
 static void trigger_passive_scanning(struct btd_adapter *adapter);
 static bool set_mode(struct btd_adapter *adapter, uint16_t opcode,
 							uint8_t mode);
+static void remove_temporary_devices(struct btd_adapter *adapter);
 
 static void settings_changed(struct btd_adapter *adapter, uint32_t settings)
 {
@@ -622,6 +623,8 @@ static bool set_mode(struct btd_adapter *adapter, uint16_t opcode,
 	switch (mode) {
 	case MGMT_OP_SET_POWERED:
 		setting = MGMT_SETTING_POWERED;
+		if (!mode)
+			remove_temporary_devices(adapter);
 		break;
 	case MGMT_OP_SET_CONNECTABLE:
 		setting = MGMT_SETTING_CONNECTABLE;
@@ -2888,8 +2891,10 @@ static void property_set_mode(struct btd_adapter *adapter, uint32_t setting,
 		param = &mode;
 		len = sizeof(mode);
 
-		if (!mode)
+		if (!mode) {
 			clear_discoverable(adapter);
+			remove_temporary_devices(adapter);
+		}
 
 		break;
 	case MGMT_SETTING_DISCOVERABLE:
@@ -5302,6 +5307,19 @@ static void remove_discovery_list(struct btd_adapter *adapter)
 
 	g_slist_free_full(adapter->discovery_list, discovery_free);
 	adapter->discovery_list = NULL;
+}
+
+static void remove_temporary_devices(struct btd_adapter *adapter)
+{
+	GSList *l, *next;
+
+	for (l = adapter->devices; l; l = next) {
+		struct btd_device *dev = l->data;
+
+		next = g_slist_next(l);
+		if (device_is_temporary(dev))
+			btd_adapter_remove_device(adapter, dev);
+	}
 }
 
 static void adapter_free(gpointer user_data)
