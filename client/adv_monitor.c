@@ -33,6 +33,7 @@ struct rssi_setting {
 	uint16_t high_timer;
 	int16_t low_threshold;
 	uint16_t low_timer;
+	uint16_t sampling_period;
 };
 
 struct pattern {
@@ -148,6 +149,8 @@ static gboolean get_rssi(const GDBusPropertyTable *property,
 							&rssi->low_threshold);
 	dbus_message_iter_append_basic(&data_iter, DBUS_TYPE_UINT16,
 							&rssi->low_timer);
+	dbus_message_iter_append_basic(&data_iter, DBUS_TYPE_UINT16,
+							&rssi->sampling_period);
 	dbus_message_iter_close_container(iter, &data_iter);
 	return TRUE;
 }
@@ -212,7 +215,7 @@ static gboolean pattern_exists(const GDBusPropertyTable *property, void *data)
 
 static const GDBusPropertyTable adv_monitor_props[] = {
 	{ "Type", "s", get_type },
-	{ "RSSIThresholdsAndTimers", "(nqnq)", get_rssi, NULL, rssi_exists },
+	{ "RSSIThresholdsAndTimers", "(nqnqq)", get_rssi, NULL, rssi_exists },
 	{ "Patterns", "a(yyay)", get_patterns, NULL, pattern_exists },
 	{ }
 };
@@ -376,56 +379,51 @@ static uint8_t str2bytearray(char *str, uint8_t *arr)
 	return arr_len;
 }
 
-static void parse_rssi_value_pair(char *value_pair, int *low, int *high)
-{
-	char *val1, *val2;
-	bool flag = value_pair[0] == ',';
-
-	val1 = strtok(value_pair, ",");
-
-	if (!val1)
-		return;
-
-	val2 = strtok(NULL, ",");
-
-	if (!val2) {
-		if (!flag)
-			*low = atoi(val1);
-		else
-			*high = atoi(val1);
-	} else {
-		*low = atoi(val1);
-		*high = atoi(val2);
-	}
-}
-
-static struct rssi_setting *parse_rssi(char *range, char *timeout)
+static struct rssi_setting *parse_rssi(char *params)
 {
 	struct rssi_setting *rssi;
-	int high_threshold, low_threshold, high_timer, low_timer;
+	char *split, *endptr;
+	int i;
+	int values[5] = {RSSI_DEFAULT_LOW_THRESHOLD,
+			RSSI_DEFAULT_HIGH_THRESHOLD,
+			RSSI_DEFAULT_LOW_TIMEOUT,
+			RSSI_DEFAULT_HIGH_TIMEOUT,
+			RSSI_DEFAULT_SAMPLING_PERIOD};
 
-	high_threshold = RSSI_DEFAULT_HIGH_THRESHOLD;
-	low_threshold = RSSI_DEFAULT_LOW_THRESHOLD;
-	high_timer = RSSI_DEFAULT_HIGH_TIMEOUT;
-	low_timer = RSSI_DEFAULT_LOW_TIMEOUT;
+	for (i = 0; i < 5; i++) {
+		if (!params) /* Params too short */
+			goto bad_format;
 
-	parse_rssi_value_pair(range, &low_threshold, &high_threshold);
-	parse_rssi_value_pair(timeout, &low_timer, &high_timer);
+		split = strsep(&params, ",");
+		if (*split != '\0') {
+			values[i] = strtol(split, &endptr, 0);
+			if (*endptr != '\0') /* Conversion failed */
+				goto bad_format;
+		} /* Otherwise no parsing needed - use default */
+	}
+
+	if (params) /* There are trailing unused params */
+		goto bad_format;
 
 	rssi = g_malloc0(sizeof(struct rssi_setting));
-
 	if (!rssi) {
-		bt_shell_printf("Failed to allocate rssi_setting");
+		bt_shell_printf("Failed to allocate rssi_setting\n");
 		bt_shell_noninteractive_quit(EXIT_FAILURE);
 		return NULL;
 	}
 
-	rssi->high_threshold = high_threshold;
-	rssi->high_timer = high_timer;
-	rssi->low_threshold = low_threshold;
-	rssi->low_timer = low_timer;
+	rssi->low_threshold = values[0];
+	rssi->high_threshold = values[1];
+	rssi->low_timer = values[2];
+	rssi->high_timer = values[3];
+	rssi->sampling_period = values[4];
 
 	return rssi;
+
+bad_format:
+	bt_shell_printf("Failed to parse RSSI\n");
+	bt_shell_noninteractive_quit(EXIT_FAILURE);
+	return NULL;
 }
 
 static struct pattern *parse_pattern(char *parameter_list[])
@@ -435,7 +433,7 @@ static struct pattern *parse_pattern(char *parameter_list[])
 	pat = g_malloc0(sizeof(struct pattern));
 
 	if (!pat) {
-		bt_shell_printf("Failed to allocate pattern");
+		bt_shell_printf("Failed to allocate pattern\n");
 		bt_shell_noninteractive_quit(EXIT_FAILURE);
 		return NULL;
 	}
@@ -537,6 +535,8 @@ static void print_adv_monitor(struct adv_monitor *adv_monitor)
 					adv_monitor->rssi->low_threshold);
 		bt_shell_printf("\t\tlow threshold timer: %hu\n",
 					adv_monitor->rssi->low_timer);
+		bt_shell_printf("\t\tsampling period: %hu\n",
+					adv_monitor->rssi->sampling_period);
 	}
 
 	if (adv_monitor->patterns) {
@@ -572,15 +572,15 @@ void adv_monitor_add_monitor(DBusConnection *conn, char *type,
 	while (find_adv_monitor_with_idx(adv_mon_idx))
 		adv_mon_idx += 1;
 
-	if (rssi_enabled == FALSE)
+	if (rssi_enabled == FALSE) {
 		rssi = NULL;
-	else {
-		rssi = parse_rssi(argv[1], argv[2]);
+	} else {
+		rssi = parse_rssi(argv[1]);
 		if (rssi == NULL)
 			return;
 
-		argv += 2;
-		argc -= 2;
+		argv += 1;
+		argc -= 1;
 	}
 
 	patterns = parse_patterns(argv+1, argc-1);
