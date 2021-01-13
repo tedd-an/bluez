@@ -2709,26 +2709,23 @@ static void cmd_ad_clear(int argc, char *argv[])
 
 static void print_add_or_pattern_with_rssi_usage(void)
 {
-	bt_shell_printf("rssi-range format:\n"
-			"\t<low-rssi>,<high-rssi>\n"
-			"\tBoth parameters can be skipped, in that case the\n"
-			"\tparamter will be set to its pre-defined value\n");
-	bt_shell_printf("\tPre-defined low-rssi,high-rssi: %d,%d\n",
-						RSSI_DEFAULT_LOW_THRESHOLD,
-						RSSI_DEFAULT_HIGH_THRESHOLD);
-	bt_shell_printf("timeout format:\n"
-			"\t<low-rssi>,<high-rssi>\n"
-			"\tBoth parameters can be skipped, in that case the\n"
-			"\tparamter will be set to its pre-defined value\n");
-	bt_shell_printf("\tPre-defined low-timeout,high-timeout: %d,%d\n",
-						RSSI_DEFAULT_LOW_TIMEOUT,
+	bt_shell_printf("rssi format:\n"
+			"\t<low-rssi>,<high-rssi>,<low-rssi-timeout>,"
+					"<high-rssi-timeout>,<sampling>\n"
+			"\tAll parameters can be skipped, in that case they\n"
+			"\twill be set to pre-defined values, which are:\n");
+	bt_shell_printf("\t\tlow-rssi: %d\n", RSSI_DEFAULT_LOW_THRESHOLD);
+	bt_shell_printf("\t\thigh-rssi: %d\n", RSSI_DEFAULT_HIGH_THRESHOLD);
+	bt_shell_printf("\t\tlow-rssi-timeout: %d\n", RSSI_DEFAULT_LOW_TIMEOUT);
+	bt_shell_printf("\t\thigh-rssi-timeout: %d\n",
 						RSSI_DEFAULT_HIGH_TIMEOUT);
+	bt_shell_printf("\t\tsampling: %d\n", RSSI_DEFAULT_SAMPLING_PERIOD);
 	bt_shell_printf("pattern format:\n"
 			"\t<start_position> <ad_data_type> <content_of_pattern>\n");
 	bt_shell_printf("e.g.\n"
-			"\tadd-or-pattern-rssi -10, ,10 1 2 01ab55\n");
+			"\tadd-or-pattern-rssi -10,,,10,0 1 2 01ab55\n");
 	bt_shell_printf("or\n"
-			"\tadd-or-pattern-rssi -50,-30 , 1 2 01ab55 3 4 23cd66\n");
+			"\tadd-or-pattern-rssi -50,-30,,, 1 2 01ab55 3 4 23cd66\n");
 }
 
 static void print_add_or_pattern_usage(void)
@@ -2826,7 +2823,7 @@ static const struct bt_shell_menu advertise_monitor_menu = {
 	.name = "monitor",
 	.desc = "Advertisement Monitor Options Submenu",
 	.entries = {
-	{ "add-or-pattern-rssi", "<rssi-range=low,high> <timeout=low,high> "
+	{ "add-or-pattern-rssi", "<rssi=low,high,low-time,high-time,sampling> "
 				"[patterns=pattern1 pattern2 ...]",
 				cmd_adv_monitor_add_or_monitor_with_rssi,
 				"Add 'or pattern' type monitor with RSSI "
