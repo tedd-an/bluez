@@ -12,6 +12,7 @@
 #define RSSI_DEFAULT_LOW_THRESHOLD -70
 #define RSSI_DEFAULT_HIGH_TIMEOUT 10
 #define RSSI_DEFAULT_LOW_TIMEOUT 5
+#define RSSI_DEFAULT_SAMPLING_PERIOD 0
 
 void adv_monitor_add_manager(DBusConnection *conn, GDBusProxy *proxy);
 void adv_monitor_remove_manager(DBusConnection *conn);
