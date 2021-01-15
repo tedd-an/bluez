@@ -46,6 +46,7 @@
 #include "src/shared/queue.h"
 #include "src/shared/att.h"
 #include "src/shared/gatt-db.h"
+#include "src/shared/crypto.h"
 
 #include "btio/btio.h"
 #include "btd.h"
@@ -281,6 +282,8 @@ struct btd_adapter {
 	bool is_default;		/* true if adapter is default one */
 
 	bool le_simult_roles_supported;
+
+	struct bt_crypto *crypto;
 };
 
 typedef enum {
@@ -5376,6 +5379,8 @@ static void adapter_free(gpointer user_data)
 
 	g_slist_free(adapter->connections);
 
+	bt_crypto_unref(adapter->crypto);
+
 	g_free(adapter->path);
 	g_free(adapter->name);
 	g_free(adapter->short_name);
@@ -6320,6 +6325,8 @@ static struct btd_adapter *btd_adapter_new(uint16_t index)
 	DBG("Pairable timeout: %u seconds", adapter->pairable_timeout);
 
 	adapter->auths = g_queue_new();
+
+	adapter->crypto = bt_crypto_new();
 
 	return btd_adapter_ref(adapter);
 }
@@ -9916,4 +9923,9 @@ bool btd_le_connect_before_pairing(void)
 bool btd_has_kernel_features(uint32_t features)
 {
 	return (kernel_features & features) ? true : false;
+}
+
+struct bt_crypto *btd_adapter_get_crypto(struct btd_adapter *adapter)
+{
+	return adapter->crypto;
 }

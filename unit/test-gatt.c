@@ -674,7 +674,7 @@ static struct context *create_context(uint16_t mtu, gconstpointer data)
 						"bt_gatt_server:", NULL);
 		break;
 	case CLIENT:
-		context->client_db = gatt_db_new();
+		context->client_db = gatt_db_new(NULL);
 		g_assert(context->client_db);
 
 		context->client = bt_gatt_client_new(context->client_db,
@@ -1363,7 +1363,7 @@ struct att_handle_spec {
 
 static struct gatt_db *make_db(const struct att_handle_spec *spec)
 {
-	struct gatt_db *db = gatt_db_new();
+	struct gatt_db *db = gatt_db_new(NULL);
 	struct gatt_db_attribute *att, *include_att;
 	bt_uuid_t uuid;
 

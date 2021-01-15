@@ -261,7 +261,7 @@ void gatt_server_start(void)
 		return;
 	}
 
-	gatt_db = gatt_db_new();
+	gatt_db = gatt_db_new(NULL);
 	if (!gatt_db) {
 		close(att_fd);
 		att_fd = -1;
@@ -271,7 +271,7 @@ void gatt_server_start(void)
 	populate_gap_service(gatt_db);
 	populate_devinfo_service(gatt_db);
 
-	gatt_cache = gatt_db_new();
+	gatt_cache = gatt_db_new(NULL);
 
 	conn_list = queue_new();
 	if (!conn_list) {

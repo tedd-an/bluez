@@ -235,12 +235,17 @@ struct gatt_db *gatt_db_ref(struct gatt_db *db)
 	return db;
 }
 
-struct gatt_db *gatt_db_new(void)
+struct gatt_db *gatt_db_new(struct bt_crypto *crypto)
 {
 	struct gatt_db *db;
 
 	db = new0(struct gatt_db, 1);
-	db->crypto = bt_crypto_new();
+
+	if (crypto)
+		db->crypto = bt_crypto_ref(crypto);
+	else
+		db->crypto = bt_crypto_new();
+
 	db->services = queue_new();
 	db->notify_list = queue_new();
 	db->next_handle = 0x0001;

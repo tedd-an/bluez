@@ -7234,7 +7234,7 @@ bool bt_gatt_register(struct ipc *ipc, const bdaddr_t *addr)
 	app_connections = queue_new();
 	listen_apps = queue_new();
 	services_sdp = queue_new();
-	gatt_db = gatt_db_new();
+	gatt_db = gatt_db_new(NULL);
 
 	if (!gatt_db) {
 		error("gatt: Failed to allocate memory for database");

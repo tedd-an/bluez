@@ -3623,7 +3623,7 @@ struct btd_gatt_database *btd_gatt_database_new(struct btd_adapter *adapter)
 
 	database = new0(struct btd_gatt_database, 1);
 	database->adapter = btd_adapter_ref(adapter);
-	database->db = gatt_db_new();
+	database->db = gatt_db_new(btd_adapter_get_crypto(adapter));
 	database->records = queue_new();
 	database->device_states = queue_new();
 	database->apps = queue_new();

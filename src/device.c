@@ -4047,7 +4047,7 @@ static struct btd_device *device_new(struct btd_adapter *adapter,
 
 	device->tx_power = 127;
 
-	device->db = gatt_db_new();
+	device->db = gatt_db_new(btd_adapter_get_crypto(adapter));
 	if (!device->db) {
 		g_free(device);
 		return NULL;

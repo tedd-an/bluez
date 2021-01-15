@@ -240,3 +240,5 @@ enum kernel_features {
 };
 
 bool btd_has_kernel_features(uint32_t feature);
+
+struct bt_crypto *btd_adapter_get_crypto(struct btd_adapter *adapter);

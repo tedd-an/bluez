@@ -8,10 +8,12 @@
  *
  */
 
+#include "src/shared/crypto.h"
+
 struct gatt_db;
 struct gatt_db_attribute;
 
-struct gatt_db *gatt_db_new(void);
+struct gatt_db *gatt_db_new(struct bt_crypto *crypto);
 
 struct gatt_db *gatt_db_ref(struct gatt_db *db);
 void gatt_db_unref(struct gatt_db *db);

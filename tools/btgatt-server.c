@@ -569,7 +569,7 @@ static struct server *server_create(int fd, uint16_t mtu, bool hr_visible)
 	server->device_name[name_len] = '\0';
 
 	server->fd = fd;
-	server->db = gatt_db_new();
+	server->db = gatt_db_new(NULL);
 	if (!server->db) {
 		fprintf(stderr, "Failed to create GATT database\n");
 		goto fail;
