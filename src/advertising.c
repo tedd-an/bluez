@@ -1755,7 +1755,7 @@ static void read_controller_cap_complete(uint8_t status, uint16_t length,
 
 	if (sizeof(rp->cap_len) + rp->cap_len != length) {
 		error("Controller capabilities malformed, size %lu != %u",
-				sizeof(rp->cap_len) + rp->cap_len, length);
+			(long) sizeof(rp->cap_len) + rp->cap_len, length);
 		return;
 	}
 
