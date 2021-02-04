@@ -141,6 +141,12 @@ struct btdev {
 	uint8_t  le_scan_own_addr_type;
 	uint8_t  le_filter_dup;
 	uint8_t  le_adv_enable;
+        uint8_t  le_periodic_adv_enable;
+        uint16_t le_periodic_adv_properties;
+        uint16_t le_periodic_min_interval;
+        uint16_t le_periodic_max_interval;
+        uint8_t  le_periodic_data_len;
+        uint8_t  le_periodic_data[31];
 	uint8_t  le_ltk[16];
 	struct {
 		struct bt_hci_cmd_le_set_cig_params params;
@@ -3008,7 +3014,6 @@ static void le_send_adv_report(struct btdev *btdev, const struct btdev *remote,
 	} meta_event;
 
 	meta_event.subevent = BT_HCI_EVT_LE_ADV_REPORT;
-
 	memset(&meta_event.lar, 0, sizeof(meta_event.lar));
 	meta_event.lar.num_reports = 1;
 	meta_event.lar.event_type = type;
@@ -3934,22 +3939,57 @@ static int cmd_clear_adv_sets(struct btdev *dev, const void *data,
 static int cmd_set_per_adv_params(struct btdev *dev, const void *data,
 							uint8_t len)
 {
-	/* TODO */
-	return -ENOTSUP;
+	const struct bt_hci_cmd_le_set_periodic_adv_params *cmd = data;
+	uint8_t status;
+
+	if (dev->le_periodic_adv_enable) {
+		status = BT_HCI_ERR_COMMAND_DISALLOWED;
+	}
+	else {
+		status = BT_HCI_ERR_SUCCESS;
+		dev->le_periodic_adv_properties = le16_to_cpu(cmd->properties);
+		dev->le_periodic_min_interval = cmd->min_interval;
+		dev->le_periodic_max_interval = cmd->max_interval;
+	}
+
+	cmd_complete(dev, BT_HCI_CMD_LE_SET_PERIODIC_ADV_PARAMS, &status,
+							sizeof(status));
+
+	return 0;
 }
 
 static int cmd_set_per_adv_data(struct btdev *dev, const void *data,
 							uint8_t len)
 {
-	/* TODO */
-	return -ENOTSUP;
+	const struct bt_hci_cmd_le_set_periodic_adv_data *cmd = data;
+	uint8_t status = BT_HCI_ERR_SUCCESS;
+
+	dev->le_periodic_data_len = cmd->data_len;
+	memcpy(dev->le_periodic_data, cmd->data, 31);
+	cmd_complete(dev, BT_HCI_CMD_LE_SET_PERIODIC_ADV_DATA, &status,
+							sizeof(status));
+
+	return 0;
 }
 
 static int cmd_set_per_adv_enable(struct btdev *dev, const void *data,
 							uint8_t len)
 {
-	/* TODO */
-	return -ENOTSUP;
+	const struct bt_hci_cmd_le_set_periodic_adv_enable *cmd = data;
+	uint8_t status;
+
+	if (dev->le_periodic_adv_enable == cmd->enable) {
+		status = BT_HCI_ERR_COMMAND_DISALLOWED;
+	}
+	else {
+		dev->le_periodic_adv_enable = cmd->enable;
+		status = BT_HCI_ERR_SUCCESS;
+	}
+
+	cmd_complete(dev, BT_HCI_CMD_LE_SET_PERIODIC_ADV_ENABLE, &status,
+							sizeof(status));
+
+	return 0;
 }
 
 static int cmd_set_ext_scan_params(struct btdev *dev, const void *data,
@@ -4474,9 +4514,32 @@ static int cmd_reject_cis(struct btdev *dev, const void *data, uint8_t len)
 static int cmd_create_big(struct btdev *dev, const void *data, uint8_t len)
 {
 	/* TODO */
-	return -ENOTSUP;
+	cmd_status(dev, BT_HCI_ERR_SUCCESS, BT_HCI_CMD_LE_CREATE_BIG);
+
+	return 0;
 }
 
+static int cmd_create_big_complete(struct btdev *dev, const void *data,
+							uint8_t len)
+{
+	const struct bt_hci_cmd_le_create_big *cmd = data;
+	int i;
+
+	for (i = 0; i < cmd->num_bis; i++) {
+		const struct bt_hci_bis *bis = &cmd->bis[i];
+		struct  bt_hci_evt_le_big_complete evt;
+
+		evt.big_id = cmd->big_id;
+		evt.num_bis = cmd->num_bis;
+		evt.phy = bis->phy;
+		memcpy(&evt.latency, &(bis->latency), 3);
+
+		le_meta_event(dev, BT_HCI_EVT_LE_BIG_COMPLETE, &evt,
+					sizeof(evt));
+	}
+
+	return 0;
+}
 static int cmd_create_big_test(struct btdev *dev, const void *data, uint8_t len)
 {
 	/* TODO */
@@ -4625,7 +4688,8 @@ static int cmd_set_host_feature(struct btdev *dev, const void *data,
 	CMD(BT_HCI_CMD_LE_REMOVE_CIG, cmd_remove_cig, NULL), \
 	CMD(BT_HCI_CMD_LE_ACCEPT_CIS, cmd_accept_cis, NULL), \
 	CMD(BT_HCI_CMD_LE_REJECT_CIS, cmd_reject_cis, NULL), \
-	CMD(BT_HCI_CMD_LE_CREATE_BIG, cmd_create_big, NULL), \
+	CMD(BT_HCI_CMD_LE_CREATE_BIG, cmd_create_big, \
+			cmd_create_big_complete), \
 	CMD(BT_HCI_CMD_LE_CREATE_BIG_TEST, cmd_create_big_test, NULL), \
 	CMD(BT_HCI_CMD_LE_TERM_BIG, cmd_term_big, NULL), \
 	CMD(BT_HCI_CMD_LE_BIG_CREATE_SYNC, cmd_big_create_sync, NULL), \
