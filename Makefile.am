@@ -189,7 +189,7 @@ shared_sources = src/shared/io.h src/shared/timeout.h \
 			src/shared/crypto.h src/shared/crypto.c \
 			src/shared/ecc.h src/shared/ecc.c \
 			src/shared/ringbuf.h src/shared/ringbuf.c \
-			src/shared/tester.h src/shared/tester.c \
+			src/shared/tester.h\
 			src/shared/hci.h src/shared/hci.c \
 			src/shared/hci-crypto.h src/shared/hci-crypto.c \
 			src/shared/hfp.h src/shared/hfp.c \
@@ -216,7 +216,8 @@ src_libshared_glib_la_SOURCES = $(shared_sources) \
 				src/shared/timeout-glib.c \
 				src/shared/mainloop-glib.c \
 				src/shared/mainloop-notify.h \
-				src/shared/mainloop-notify.c
+				src/shared/mainloop-notify.c \
+				src/shared/tester.c
 
 src_libshared_mainloop_la_SOURCES = $(shared_sources) \
 				src/shared/io-mainloop.c \
@@ -230,7 +231,8 @@ src_libshared_ell_la_SOURCES = $(shared_sources) \
 				src/shared/io-ell.c \
 				src/shared/timeout-ell.c \
 				src/shared/mainloop.h \
-				src/shared/mainloop-ell.c
+				src/shared/mainloop-ell.c \
+				src/shared/tester-ell.c
 endif
 
 attrib_sources = attrib/att.h attrib/att-database.h attrib/att.c \
