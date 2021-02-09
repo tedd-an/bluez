@@ -1728,6 +1728,18 @@ static void exp_debug_rsp(uint8_t status, uint16_t len, const void *param,
 	bt_shell_noninteractive_quit(EXIT_SUCCESS);
 }
 
+static void exp_reset_hci_rsp(uint8_t status, uint16_t len, const void *param,
+			      void *user_data)
+{
+	if (status != 0)
+		error("Set reset hci feature failed with status 0x%02x (%s)",
+						status, mgmt_errstr(status));
+	else
+		print("Reset hci feature successfully set");
+
+	bt_shell_noninteractive_quit(EXIT_SUCCESS);
+}
+
 static void cmd_exp_debug(int argc, char **argv)
 {
 	/* d4992530-b9ec-469f-ab01-6c481c47da1c */
@@ -1748,6 +1760,25 @@ static void cmd_exp_debug(int argc, char **argv)
 	if (mgmt_send(mgmt, MGMT_OP_SET_EXP_FEATURE, mgmt_index,
 			sizeof(cp), &cp, exp_debug_rsp, NULL, NULL) == 0) {
 		error("Unable to send debug feature cmd");
+		return bt_shell_noninteractive_quit(EXIT_FAILURE);
+	}
+}
+
+static void cmd_exp_reset_hci(int argc, char **argv)
+{
+	/* 3f06cef5-2b4f-4c22-b1f4-64bb4733e637 */
+	const uint8_t uuid[16] = {
+		0x37, 0xe6, 0x33, 0x47, 0xbb, 0x64, 0xf4, 0xb1,
+		0x22, 0x4c, 0x4f, 0x2b, 0xf5, 0xce, 0x06, 0x3f,
+	};
+	struct mgmt_cp_set_exp_feature cp;
+
+	memset(&cp, 0, sizeof(cp));
+	memcpy(cp.uuid, uuid, 16);
+
+	if (mgmt_send(mgmt, MGMT_OP_SET_EXP_FEATURE, mgmt_index,
+			sizeof(cp), &cp, exp_reset_hci_rsp, NULL, NULL) == 0) {
+		error("Unable to send reset hci feature cmd");
 		return bt_shell_noninteractive_quit(EXIT_FAILURE);
 	}
 }
@@ -5303,6 +5334,8 @@ static const struct bt_shell_menu main_menu = {
 		cmd_expinfo,		"Show experimental features"	},
 	{ "exp-debug",		"<on/off>",
 		cmd_exp_debug,		"Set debug feature"		},
+	{ "exp-reset-hci",	NULL,
+		cmd_exp_reset_hci,	"Reset hci"	},
 	{ "read-sysconfig",	NULL,
 		cmd_read_sysconfig,	"Read System Configuration"	},
 	{ "set-sysconfig",	"<-v|-h> [options...]",
