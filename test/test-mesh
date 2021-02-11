@@ -889,6 +889,11 @@ class MainMenu(Menu):
 
 		uuid = bytearray.fromhex("0a0102030405060708090A0B0C0D0E0F")
 		random.shuffle(uuid)
+		uuid[6] &= 0x0f;
+		uuid[6] |= 4 << 4;
+		uuid[8] &= 0x3f;
+		uuid[8] |= 0x80;
+
 		uuid_str = array_to_string(uuid)
 
 		print(set_yellow('Joining with UUID ') + set_green(uuid_str))
