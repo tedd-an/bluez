@@ -67,6 +67,7 @@ static void usage(void)
 		"\t                       Read data from RTT\n"
 		"\t-R  --rtt [<address>],[<area>],[<name>]\n"
 		"\t                       RTT control block parameters\n"
+		"\t-c, --column [width]   Output width if not a terminal\n"
 		"\t-h, --help             Show help options\n");
 }
 
@@ -90,6 +91,7 @@ static const struct option main_options[] = {
 	{ "no-pager",  no_argument,       NULL, 'P' },
 	{ "jlink",     required_argument, NULL, 'J' },
 	{ "rtt",       required_argument, NULL, 'R' },
+	{ "column",    required_argument, NULL, 'c' },
 	{ "todo",      no_argument,       NULL, '#' },
 	{ "version",   no_argument,       NULL, 'v' },
 	{ "help",      no_argument,       NULL, 'h' },
@@ -110,6 +112,7 @@ int main(int argc, char *argv[])
 	const char *str;
 	char *jlink = NULL;
 	char *rtt = NULL;
+	int column = 0;
 	int exit_status;
 
 	mainloop_init();
@@ -121,7 +124,7 @@ int main(int argc, char *argv[])
 		struct sockaddr_un addr;
 
 		opt = getopt_long(argc, argv,
-					"r:w:a:s:p:i:d:B:V:MNtTSAE:PJ:R:vh",
+					"r:w:a:s:p:i:d:B:V:MNtTSAE:PJ:R:vhc:",
 					main_options, NULL);
 		if (opt < 0)
 			break;
@@ -205,6 +208,9 @@ int main(int argc, char *argv[])
 		case 'R':
 			rtt = optarg;
 			break;
+		case 'c':
+			column = atoi(optarg);
+			break;
 		case '#':
 			packet_todo();
 			lmp_todo();
@@ -245,7 +251,7 @@ int main(int argc, char *argv[])
 		if (ellisys_server)
 			ellisys_enable(ellisys_server, ellisys_port);
 
-		control_reader(reader_path, use_pager);
+		control_reader(reader_path, use_pager, column);
 		return EXIT_SUCCESS;
 	}
 

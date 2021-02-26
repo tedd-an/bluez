@@ -12,7 +12,7 @@
 #include <stdint.h>
 
 bool control_writer(const char *path);
-void control_reader(const char *path, bool pager);
+void control_reader(const char *path, bool pager, int column);
 void control_server(const char *path);
 int control_tty(const char *path, unsigned int speed);
 int control_rtt(char *jlink, char *rtt);
