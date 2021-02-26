@@ -1474,7 +1474,7 @@ bool control_writer(const char *path)
 	return !!btsnoop_file;
 }
 
-void control_reader(const char *path, bool pager)
+void control_reader(const char *path, bool pager, int num_columns)
 {
 	unsigned char buf[BTSNOOP_MAX_PACKET_SIZE];
 	uint16_t pktlen;
@@ -1500,7 +1500,7 @@ void control_reader(const char *path, bool pager)
 	}
 
 	if (pager)
-		open_pager();
+		open_pager(num_columns);
 
 	switch (format) {
 	case BTSNOOP_FORMAT_HCI:
