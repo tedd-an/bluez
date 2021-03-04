@@ -530,8 +530,11 @@ static struct l_dbus_message *disp_numeric_call(struct l_dbus *dbus,
 	if (action_index < 0)
 		return l_dbus_message_new_error(msg, dbus_err_support, NULL);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 	str = l_strdup_printf(display_numeric_table[action_index].description,
 									n);
+#pragma GCC diagnostic pop
 	bt_shell_printf(COLOR_YELLOW "%s\n" COLOR_OFF, str);
 	l_free(str);
 
