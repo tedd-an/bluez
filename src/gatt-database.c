@@ -1241,22 +1241,23 @@ static void device_info_read_pnp_id_cb(struct gatt_db_attribute *attrib,
 static void populate_devinfo_service(struct btd_gatt_database *database)
 {
 	struct gatt_db_attribute *service;
+	struct gatt_db_attribute *attrib;
 	bt_uuid_t uuid;
+
+	/* Only register DIS if source has been set */
+	if (!btd_opts.did_source)
+		return;
 
 	bt_uuid16_create(&uuid, UUID_DIS);
 	service = gatt_db_add_service(database->db, &uuid, true, 3);
 
-	if (btd_opts.did_source > 0) {
-		struct gatt_db_attribute *attrib;
-
-		bt_uuid16_create(&uuid, GATT_CHARAC_PNP_ID);
-		attrib = gatt_db_service_add_characteristic(service, &uuid,
+	bt_uuid16_create(&uuid, GATT_CHARAC_PNP_ID);
+	attrib = gatt_db_service_add_characteristic(service, &uuid,
 						BT_ATT_PERM_READ,
 						BT_GATT_CHRC_PROP_READ,
 						device_info_read_pnp_id_cb,
 						NULL, database);
-		gatt_db_attribute_set_fixed_length(attrib, 7);
-	}
+	gatt_db_attribute_set_fixed_length(attrib, 7);
 
 	gatt_db_service_set_active(service, true);
 
