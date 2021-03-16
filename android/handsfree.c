@@ -2330,9 +2330,7 @@ static void phone_state_incoming(struct hf_device *dev, int num_active,
 	/* send first RING */
 	ring_cb(dev);
 
-	dev->ring = g_timeout_add_seconds_full(G_PRIORITY_DEFAULT,
-							RING_TIMEOUT, ring_cb,
-							dev, NULL);
+	dev->ring = g_timeout_add_seconds(RING_TIMEOUT, ring_cb, dev);
 	if (!dev->ring) {
 		g_free(dev->clip);
 		dev->clip = NULL;
