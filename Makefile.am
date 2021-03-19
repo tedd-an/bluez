@@ -115,6 +115,8 @@ ell_headers = ell/util.h \
 			ell/hashmap.h \
 			ell/random.h \
 			ell/signal.h \
+			ell/time.h \
+			ell/time-private.h \
 			ell/timeout.h \
 			ell/cipher.h \
 			ell/checksum.h \
@@ -137,7 +139,8 @@ ell_headers = ell/util.h \
 			ell/pem-private.h \
 			ell/uuid.h \
 			ell/useful.h \
-			ell/main-private.h
+			ell/main-private.h \
+			ell/tester.h
 
 ell_sources = ell/private.h ell/missing.h \
 			ell/util.c \
@@ -146,6 +149,7 @@ ell_sources = ell/private.h ell/missing.h \
 			ell/hashmap.c \
 			ell/random.c \
 			ell/signal.c \
+			ell/time.c \
 			ell/timeout.c \
 			ell/io.c \
 			ell/idle.c \
@@ -173,7 +177,8 @@ ell_sources = ell/private.h ell/missing.h \
 			ell/gvariant-util.c \
 			ell/siphash-private.h \
 			ell/siphash.c \
-			ell/uuid.c
+			ell/uuid.c \
+			ell/tester.c
 
 ell_libell_internal_la_SOURCES = $(ell_headers) $(ell_sources)
 endif
@@ -193,7 +198,7 @@ shared_sources = src/shared/io.h src/shared/timeout.h \
 			src/shared/crypto.h src/shared/crypto.c \
 			src/shared/ecc.h src/shared/ecc.c \
 			src/shared/ringbuf.h src/shared/ringbuf.c \
-			src/shared/tester.h src/shared/tester.c \
+			src/shared/tester.h\
 			src/shared/hci.h src/shared/hci.c \
 			src/shared/hci-crypto.h src/shared/hci-crypto.c \
 			src/shared/hfp.h src/shared/hfp.c \
@@ -220,7 +225,8 @@ src_libshared_glib_la_SOURCES = $(shared_sources) \
 				src/shared/timeout-glib.c \
 				src/shared/mainloop-glib.c \
 				src/shared/mainloop-notify.h \
-				src/shared/mainloop-notify.c
+				src/shared/mainloop-notify.c \
+				src/shared/tester.c
 
 src_libshared_mainloop_la_SOURCES = $(shared_sources) \
 				src/shared/io-mainloop.c \
