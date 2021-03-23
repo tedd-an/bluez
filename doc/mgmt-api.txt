@@ -4085,7 +4085,7 @@ Device Connected Event
 	start using its identity.
 
 	The following bits are defined for the Flags parameter:
-		0	Reserved (not in use)
+		0	Outbound Connection
 		1	Legacy Pairing
 		2	Reserved (not in use)
 
