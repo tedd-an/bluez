@@ -4088,6 +4088,7 @@ Device Connected Event
 		0	Reserved (not in use)
 		1	Legacy Pairing
 		2	Reserved (not in use)
+		3	Initiated Connection
 
 
 Device Disconnected Event
