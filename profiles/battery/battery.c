@@ -46,6 +46,8 @@
 
 #define BATT_UUID16 0x180f
 
+enum battery_update { UPDATE_ON_CHANGE, ALWAYS_UPDATE };
+
 /* Generic Attribute/Access Service */
 struct batt {
 	struct btd_battery *battery;
@@ -88,12 +90,13 @@ static void batt_reset(struct batt *batt)
 }
 
 static void parse_battery_level(struct batt *batt,
-				const uint8_t *value)
+				const uint8_t *value,
+				enum battery_update update)
 {
 	uint8_t percentage;
 
 	percentage = value[0];
-	if (batt->percentage != percentage) {
+	if (update == ALWAYS_UPDATE || batt->percentage != percentage) {
 		batt->percentage = percentage;
 		DBG("Battery Level updated: %d%%", percentage);
 		if (!batt->battery) {
@@ -110,7 +113,7 @@ static void batt_io_value_cb(uint16_t value_handle, const uint8_t *value,
 	struct batt *batt = user_data;
 
 	if (value_handle == batt->batt_level_io_handle) {
-		parse_battery_level(batt, value);
+		parse_battery_level(batt, value, UPDATE_ON_CHANGE);
 	} else {
 		g_assert_not_reached();
 	}
@@ -134,7 +137,7 @@ static void batt_io_ccc_written_cb(uint16_t att_ecode, void *user_data)
 		return;
 	}
 
-	parse_battery_level(batt, batt->initial_value);
+	parse_battery_level(batt, batt->initial_value, ALWAYS_UPDATE);
 	g_free (batt->initial_value);
 	batt->initial_value = NULL;
 
