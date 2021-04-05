@@ -2261,6 +2261,42 @@ static void cmd_bredr(int argc, char **argv)
 	cmd_setting(MGMT_OP_SET_BREDR, argc, argv);
 }
 
+static void ll_rpa_resoln_rsp(uint8_t status, uint16_t len, const void *param,
+			      void *user_data)
+{
+	if (status != 0)
+		error("Could not set LL RPA resolution with status 0x%02x (%s)",
+		      status, mgmt_errstr(status));
+	else
+		print("LL RPA Resolution successfully set");
+
+	bt_shell_noninteractive_quit(EXIT_SUCCESS);
+}
+
+static void cmd_set_ll_rpa_resoln(int argc, char **argv)
+{
+	/* 15c0a148-c273-11ea-b3de-0242ac130004 */
+	static const uint8_t rpa_resolution_uuid[16] = {
+				0x04, 0x00, 0x13, 0xac, 0x42, 0x02, 0xde, 0xb3,
+				0xea, 0x11, 0x73, 0xc2, 0x48, 0xa1, 0xc0, 0x15,
+	};
+	struct mgmt_cp_set_exp_feature cp;
+	uint16_t index;
+
+	memset(&cp, 0, sizeof(cp));
+	memcpy(cp.uuid, rpa_resolution_uuid, 16);
+
+	index = mgmt_index;
+	if (index == MGMT_INDEX_NONE)
+		index = 0;
+
+	if (parse_setting(argc, argv, &cp.action) == false)
+		return bt_shell_noninteractive_quit(EXIT_FAILURE);
+
+	mgmt_send(mgmt, MGMT_OP_SET_EXP_FEATURE, index,
+		  sizeof(cp), &cp, ll_rpa_resoln_rsp, NULL, NULL);
+}
+
 static void cmd_privacy(int argc, char **argv)
 {
 	struct mgmt_cp_set_privacy cp;
@@ -5243,6 +5279,8 @@ static const struct bt_shell_menu main_menu = {
 		cmd_bredr,		"Toggle BR/EDR support",	},
 	{ "privacy",		"<on/off>",
 		cmd_privacy,		"Toggle privacy support"	},
+	{ "llprivacy",		"<on/off>",
+		cmd_set_ll_rpa_resoln,	"Toggle LL privacy support"	},
 	{ "class",		"<major> <minor>",
 		cmd_class,		"Set device major/minor class"	},
 	{ "disconnect", 	"[-t type] <remote address>",
