@@ -42,6 +42,7 @@
 #define ATT_OP_HANDLE_NOTIFY		0x1B
 #define ATT_OP_HANDLE_IND		0x1D
 #define ATT_OP_HANDLE_CNF		0x1E
+#define ATT_OP_HANDLE_NOTIFY_MULTI	0x23
 #define ATT_OP_SIGNED_WRITE_CMD		0xD2
 
 /* Error codes for Error response PDU */

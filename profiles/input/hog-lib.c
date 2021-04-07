@@ -65,7 +65,6 @@
 
 #define HOG_REPORT_MAP_MAX_SIZE        512
 #define HID_INFO_SIZE			4
-#define ATT_NOTIFICATION_HEADER_SIZE	3
 
 struct bt_hog {
 	int			ref_count;
@@ -112,7 +111,8 @@ struct report {
 	uint16_t		value_handle;
 	uint8_t			properties;
 	uint16_t		ccc_handle;
-	guint			notifyid;
+	guint			notify_id;
+	guint			notify_multi_id;
 	uint16_t		len;
 	uint8_t			*value;
 };
@@ -283,21 +283,13 @@ static void find_included(struct bt_hog *hog, GAttrib *attrib,
 	free(req);
 }
 
-static void report_value_cb(const guint8 *pdu, guint16 len, gpointer user_data)
+static void process_notification(struct report *report, guint16 len,
+							const uint8_t *data)
 {
-	struct report *report = user_data;
 	struct bt_hog *hog = report->hog;
 	struct uhid_event ev;
 	uint8_t *buf;
 	int err;
-
-	if (len < ATT_NOTIFICATION_HEADER_SIZE) {
-		error("Malformed ATT notification");
-		return;
-	}
-
-	pdu += ATT_NOTIFICATION_HEADER_SIZE;
-	len -= ATT_NOTIFICATION_HEADER_SIZE;
 
 	memset(&ev, 0, sizeof(ev));
 	ev.type = UHID_INPUT;
@@ -306,19 +298,78 @@ static void report_value_cb(const guint8 *pdu, guint16 len, gpointer user_data)
 	if (hog->has_report_id) {
 		buf[0] = report->id;
 		len = MIN(len, sizeof(ev.u.input.data) - 1);
-		memcpy(buf + 1, pdu, len);
-		ev.u.input.size = ++len;
+		memcpy(buf + 1, data, len);
+		ev.u.input.size = len + 1;
 	} else {
 		len = MIN(len, sizeof(ev.u.input.data));
-		memcpy(buf, pdu, len);
+		memcpy(buf, data, len);
 		ev.u.input.size = len;
 	}
 
 	err = bt_uhid_send(hog->uhid, &ev);
-	if (err < 0) {
+	if (err < 0)
 		error("bt_uhid_send: %s (%d)", strerror(-err), -err);
-		return;
+}
+
+static void report_value_cb(const guint8 *pdu, guint16 len, gpointer user_data)
+{
+	struct report *report = user_data;
+	uint8_t opcode = pdu[0];
+	guint16 report_len;
+	guint16 header_len;
+
+	/* Skip opcode field */
+	pdu += 1;
+	len -= 1;
+
+	if (opcode == ATT_OP_HANDLE_NOTIFY_MULTI)
+		header_len = 4;
+	else
+		header_len = 2;
+
+	if (len < header_len)
+		goto fail;
+
+	while (len >= header_len) {
+		/* Skip first 2 bytes (handle) */
+		pdu += 2;
+		len -= 2;
+
+		if (opcode == ATT_OP_HANDLE_NOTIFY_MULTI) {
+			report_len = get_le16(pdu);
+			pdu += 2;
+			len -= 2;
+
+			if (report_len > len)
+				goto fail;
+		} else {
+			report_len = len;
+		}
+
+		process_notification(report, report_len, pdu);
+
+		pdu += report_len;
+		len -= report_len;
 	}
+
+	if (len == 0)
+		return;
+
+fail:
+	error("Malformed ATT notification");
+}
+
+static void register_notify_handler(struct bt_hog *hog, struct report *report)
+{
+	report->notify_id = g_attrib_register(hog->attrib,
+					ATT_OP_HANDLE_NOTIFY,
+					report->value_handle,
+					report_value_cb, report, NULL);
+
+	report->notify_multi_id = g_attrib_register(hog->attrib,
+					ATT_OP_HANDLE_NOTIFY_MULTI,
+					report->value_handle,
+					report_value_cb, report, NULL);
 }
 
 static void report_ccc_written_cb(guint8 status, const guint8 *pdu,
@@ -336,13 +387,10 @@ static void report_ccc_written_cb(guint8 status, const guint8 *pdu,
 		return;
 	}
 
-	if (report->notifyid)
+	if (report->notify_id)
 		return;
 
-	report->notifyid = g_attrib_register(hog->attrib,
-					ATT_OP_HANDLE_NOTIFY,
-					report->value_handle,
-					report_value_cb, report, NULL);
+	register_notify_handler(hog, report);
 
 	DBG("Report characteristic descriptor written: notifications enabled");
 }
@@ -1711,13 +1759,10 @@ bool bt_hog_attach(struct bt_hog *hog, void *gatt)
 	for (l = hog->reports; l; l = l->next) {
 		struct report *r = l->data;
 
-		if (r->notifyid)
+		if (r->notify_id)
 			continue;
 
-		r->notifyid = g_attrib_register(hog->attrib,
-					ATT_OP_HANDLE_NOTIFY,
-					r->value_handle,
-					report_value_cb, r, NULL);
+		register_notify_handler(hog, r);
 	}
 
 	return true;
@@ -1764,9 +1809,13 @@ void bt_hog_detach(struct bt_hog *hog)
 	for (l = hog->reports; l; l = l->next) {
 		struct report *r = l->data;
 
-		if (r->notifyid > 0) {
-			g_attrib_unregister(hog->attrib, r->notifyid);
-			r->notifyid = 0;
+		if (r->notify_id > 0) {
+			g_attrib_unregister(hog->attrib, r->notify_id);
+			r->notify_id = 0;
+		}
+		if (r->notify_multi_id > 0) {
+			g_attrib_unregister(hog->attrib, r->notify_multi_id);
+			r->notify_multi_id = 0;
 		}
 	}
 
