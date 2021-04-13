@@ -37,6 +37,10 @@ struct hci_dev {
 	unsigned long vendor_diag;
 	unsigned long system_note;
 	unsigned long user_log;
+	unsigned long ctrl_open;
+	unsigned long ctrl_close;
+	unsigned long ctrl_cmd;
+	unsigned long ctrl_evt;
 	unsigned long unknown;
 	uint16_t manufacturer;
 };
@@ -76,6 +80,10 @@ static void dev_destroy(void *data)
 	printf("  %lu vendor diagnostics\n", dev->vendor_diag);
 	printf("  %lu system notes\n", dev->system_note);
 	printf("  %lu user logs\n", dev->user_log);
+	printf("  %lu control open\n", dev->ctrl_open);
+	printf("  %lu control close\n", dev->ctrl_close);
+	printf("  %lu control commands\n", dev->ctrl_cmd);
+	printf("  %lu control events\n", dev->ctrl_evt);
 	printf("  %lu unknown opcodes\n", dev->unknown);
 	printf("\n");
 
@@ -299,6 +307,54 @@ static void user_log(struct timeval *tv, uint16_t index,
 	dev->user_log++;
 }
 
+static void ctrl_open(struct timeval *tv, uint16_t index,
+					const void *data, uint16_t size)
+{
+	struct hci_dev *dev;
+
+	dev = dev_lookup(index);
+	if (!dev)
+		return;
+
+	dev->ctrl_open++;
+}
+
+static void ctrl_close(struct timeval *tv, uint16_t index,
+					const void *data, uint16_t size)
+{
+	struct hci_dev *dev;
+
+	dev = dev_lookup(index);
+	if (!dev)
+		return;
+
+	dev->ctrl_close++;
+}
+
+static void ctrl_cmd(struct timeval *tv, uint16_t index,
+					const void *data, uint16_t size)
+{
+	struct hci_dev *dev;
+
+	dev = dev_lookup(index);
+	if (!dev)
+		return;
+
+	dev->ctrl_cmd++;
+}
+
+static void ctrl_evt(struct timeval *tv, uint16_t index,
+					const void *data, uint16_t size)
+{
+	struct hci_dev *dev;
+
+	dev = dev_lookup(index);
+	if (!dev)
+		return;
+
+	dev->ctrl_evt++;
+}
+
 static void unknown_opcode(struct timeval *tv, uint16_t index,
 					const void *data, uint16_t size)
 {
@@ -379,6 +435,18 @@ void analyze_trace(const char *path)
 			break;
 		case BTSNOOP_OPCODE_USER_LOGGING:
 			user_log(&tv, index, buf, pktlen);
+			break;
+		case BTSNOOP_OPCODE_CTRL_OPEN:
+			ctrl_open(&tv, index, buf, pktlen);
+			break;
+		case BTSNOOP_OPCODE_CTRL_CLOSE:
+			ctrl_close(&tv, index, buf, pktlen);
+			break;
+		case BTSNOOP_OPCODE_CTRL_COMMAND:
+			ctrl_cmd(&tv, index, buf, pktlen);
+			break;
+		case BTSNOOP_OPCODE_CTRL_EVENT:
+			ctrl_evt(&tv, index, buf, pktlen);
 			break;
 		default:
 			fprintf(stderr, "Unknown opcode %u\n", opcode);
