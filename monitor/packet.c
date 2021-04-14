@@ -9325,18 +9325,12 @@ static const char *get_supported_command(int bit)
 
 static const char *current_vendor_str(void)
 {
-	uint16_t manufacturer, msft_opcode;
+	uint16_t manufacturer;
 
-	if (index_current < MAX_INDEX) {
+	if (index_current < MAX_INDEX)
 		manufacturer = index_list[index_current].manufacturer;
-		msft_opcode = index_list[index_current].msft_opcode;
-	} else {
+	else
 		manufacturer = fallback_manufacturer;
-		msft_opcode = BT_HCI_CMD_NOP;
-	}
-
-	if (msft_opcode != BT_HCI_CMD_NOP)
-		return "Microsoft";
 
 	switch (manufacturer) {
 	case 2:
