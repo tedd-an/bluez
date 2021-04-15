@@ -266,6 +266,7 @@ struct index_data {
 	uint8_t  bdaddr[6];
 	uint16_t manufacturer;
 	uint16_t msft_opcode;
+	uint8_t  msft_evt_code;
 	size_t   frame;
 };
 
@@ -3940,6 +3941,7 @@ void packet_monitor(struct timeval *tv, struct ucred *cred,
 			memcpy(index_list[index].bdaddr, ni->bdaddr, 6);
 			index_list[index].manufacturer = fallback_manufacturer;
 			index_list[index].msft_opcode = BT_HCI_CMD_NOP;
+			index_list[index].msft_evt_code = 0x00;
 		}
 
 		addr2str(ni->bdaddr, str);
@@ -4006,9 +4008,11 @@ void packet_monitor(struct timeval *tv, struct ucred *cred,
 				/*
 				 * Intel controllers that support the
 				 * Microsoft vendor extension are using
-				 * 0xFC1E for VsMsftOpCode.
+				 * 0xFC1E for VsMsftOpCode and 0x50 for event
+				 * code.
 				 */
 				index_list[index].msft_opcode = 0xFC1E;
+				index_list[index].msft_evt_code = 0x50;
 				break;
 			case 93:
 				/*
@@ -9323,7 +9327,7 @@ static const char *get_supported_command(int bit)
 	return NULL;
 }
 
-static const char *current_vendor_str(void)
+static const char *current_vendor_str(uint16_t ocf)
 {
 	uint16_t manufacturer, msft_opcode;
 
@@ -9335,7 +9339,35 @@ static const char *current_vendor_str(void)
 		msft_opcode = BT_HCI_CMD_NOP;
 	}
 
-	if (msft_opcode != BT_HCI_CMD_NOP)
+	if (msft_opcode != BT_HCI_CMD_NOP &&
+				cmd_opcode_ocf(msft_opcode) == ocf)
+		return "Microsoft";
+
+	switch (manufacturer) {
+	case 2:
+		return "Intel";
+	case 15:
+		return "Broadcom";
+	case 93:
+		return "Realtek";
+	}
+
+	return NULL;
+}
+
+static const char *current_vendor_evt_str(uint8_t evt)
+{
+	uint16_t manufacturer, msft_evt_code;
+
+	if (index_current < MAX_INDEX) {
+		manufacturer = index_list[index_current].manufacturer;
+		msft_evt_code = index_list[index_current].msft_evt_code;
+	} else {
+		manufacturer = fallback_manufacturer;
+		msft_evt_code = 0x00;
+	}
+
+	if (msft_evt_code == evt)
 		return "Microsoft";
 
 	switch (manufacturer) {
@@ -9378,18 +9410,18 @@ static const struct vendor_ocf *current_vendor_ocf(uint16_t ocf)
 
 static const struct vendor_evt *current_vendor_evt(uint8_t evt)
 {
-	uint16_t manufacturer, msft_opcode;
+	uint16_t manufacturer, msft_evt_code;
 
 	if (index_current < MAX_INDEX) {
 		manufacturer = index_list[index_current].manufacturer;
-		msft_opcode = index_list[index_current].msft_opcode;
+		msft_evt_code = index_list[index_current].msft_evt_code;
 	} else {
 		manufacturer = fallback_manufacturer;
-		msft_opcode = BT_HCI_CMD_NOP;
+		msft_evt_code = 0x00;
 	}
 
-	if (msft_opcode != BT_HCI_CMD_NOP)
-		return NULL;
+	if (msft_evt_code == evt)
+		return msft_vendor_evt();
 
 	switch (manufacturer) {
 	case 2:
@@ -9573,7 +9605,7 @@ static void cmd_complete_evt(const void *data, uint8_t size)
 			const struct vendor_ocf *vnd = current_vendor_ocf(ocf);
 
 			if (vnd) {
-				const char *str = current_vendor_str();
+				const char *str = current_vendor_str(ocf);
 
 				if (str) {
 					snprintf(vendor_str, sizeof(vendor_str),
@@ -9665,7 +9697,7 @@ static void cmd_status_evt(const void *data, uint8_t size)
 			const struct vendor_ocf *vnd = current_vendor_ocf(ocf);
 
 			if (vnd) {
-				const char *str = current_vendor_str();
+				const char *str = current_vendor_str(ocf);
 
 				if (str) {
 					snprintf(vendor_str, sizeof(vendor_str),
@@ -11018,7 +11050,7 @@ static void vendor_evt(const void *data, uint8_t size)
 	const struct vendor_evt *vnd = current_vendor_evt(subevent);
 
 	if (vnd) {
-		const char *str = current_vendor_str();
+		const char *str = current_vendor_evt_str(subevent);
 
 		if (str) {
 			snprintf(vendor_str, sizeof(vendor_str),
@@ -11419,7 +11451,7 @@ void packet_hci_command(struct timeval *tv, struct ucred *cred, uint16_t index,
 			const struct vendor_ocf *vnd = current_vendor_ocf(ocf);
 
 			if (vnd) {
-				const char *str = current_vendor_str();
+				const char *str = current_vendor_str(ocf);
 
 				if (str) {
 					snprintf(vendor_str, sizeof(vendor_str),
