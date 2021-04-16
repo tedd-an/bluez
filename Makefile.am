@@ -579,14 +579,6 @@ if LIBRARY
 pkgconfig_DATA = lib/bluez.pc
 endif
 
-manual_pages = doc/btmon.1
-
-if MANPAGES
-dist_noinst_MANS += $(manual_pages)
-endif
-
-EXTRA_DIST += $(manual_pages:.1=.txt)
-
 DISTCHECK_CONFIGURE_FLAGS = --disable-datafiles --enable-library \
 						--enable-health \
 						--enable-midi \
@@ -597,7 +589,7 @@ DISTCHECK_CONFIGURE_FLAGS = --disable-datafiles --enable-library \
 						--disable-systemd \
 						--disable-udev
 
-DISTCLEANFILES = $(pkgconfig_DATA) $(unit_tests) $(manual_pages)
+DISTCLEANFILES = $(pkgconfig_DATA) $(unit_tests)
 
 MAINTAINERCLEANFILES = Makefile.in \
 	aclocal.m4 configure config.h.in config.sub config.guess \
