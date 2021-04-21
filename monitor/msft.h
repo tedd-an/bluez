@@ -24,6 +24,12 @@
 
 #include <stdint.h>
 
+struct msft_ext {
+	uint16_t opcode;
+	uint8_t  evt_prefix_len;
+	uint8_t  evt_prefix[32];
+} __attribute__ ((packed));
+
 struct vendor_ocf;
 struct vendor_evt;
 

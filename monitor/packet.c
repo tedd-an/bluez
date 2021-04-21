@@ -265,7 +265,7 @@ struct index_data {
 	uint8_t  type;
 	uint8_t  bdaddr[6];
 	uint16_t manufacturer;
-	uint16_t msft_opcode;
+	struct msft_ext msft_ext;
 	size_t   frame;
 };
 
@@ -3939,7 +3939,9 @@ void packet_monitor(struct timeval *tv, struct ucred *cred,
 			index_list[index].type = ni->type;
 			memcpy(index_list[index].bdaddr, ni->bdaddr, 6);
 			index_list[index].manufacturer = fallback_manufacturer;
-			index_list[index].msft_opcode = BT_HCI_CMD_NOP;
+			index_list[index].msft_ext.opcode = BT_HCI_CMD_NOP;
+			index_list[index].msft_ext.evt_prefix_len = 0;
+			memset(index_list[index].msft_ext.evt_prefix, 0, 32);
 		}
 
 		addr2str(ni->bdaddr, str);
@@ -4006,9 +4008,12 @@ void packet_monitor(struct timeval *tv, struct ucred *cred,
 				/*
 				 * Intel controllers that support the
 				 * Microsoft vendor extension are using
-				 * 0xFC1E for VsMsftOpCode.
+				 * 0xFC1E for VsMsftOpCode and 0x50 for event
+				 * code.
 				 */
-				index_list[index].msft_opcode = 0xFC1E;
+				index_list[index].msft_ext.opcode = 0xFC1E;
+				index_list[index].msft_ext.evt_prefix_len = 1;
+				index_list[index].msft_ext.evt_prefix[0] = 0x50;
 				break;
 			case 93:
 				/*
@@ -4016,7 +4021,16 @@ void packet_monitor(struct timeval *tv, struct ucred *cred,
 				 * Microsoft vendor extenions are using
 				 * 0xFCF0 for VsMsftOpCode.
 				 */
-				index_list[index].msft_opcode = 0xFCF0;
+				index_list[index].msft_ext.opcode = 0xFCF0;
+				index_list[index].msft_ext.evt_prefix_len = 8;
+				index_list[index].msft_ext.evt_prefix[0] = 0x23;
+				index_list[index].msft_ext.evt_prefix[1] = 0x79;
+				index_list[index].msft_ext.evt_prefix[2] = 0x54;
+				index_list[index].msft_ext.evt_prefix[3] = 0x33;
+				index_list[index].msft_ext.evt_prefix[4] = 0x77;
+				index_list[index].msft_ext.evt_prefix[5] = 0x88;
+				index_list[index].msft_ext.evt_prefix[6] = 0x97;
+				index_list[index].msft_ext.evt_prefix[7] = 0x68;
 				break;
 			}
 		}
@@ -9323,20 +9337,42 @@ static const char *get_supported_command(int bit)
 	return NULL;
 }
 
-static const char *current_vendor_str(void)
+static const char *current_vendor_str(uint16_t ocf)
 {
 	uint16_t manufacturer, msft_opcode;
 
 	if (index_current < MAX_INDEX) {
 		manufacturer = index_list[index_current].manufacturer;
-		msft_opcode = index_list[index_current].msft_opcode;
+		msft_opcode = index_list[index_current].msft_ext.opcode;
 	} else {
 		manufacturer = fallback_manufacturer;
 		msft_opcode = BT_HCI_CMD_NOP;
 	}
 
-	if (msft_opcode != BT_HCI_CMD_NOP)
+	if (msft_opcode != BT_HCI_CMD_NOP &&
+				cmd_opcode_ocf(msft_opcode) == ocf)
 		return "Microsoft";
+
+	switch (manufacturer) {
+	case 2:
+		return "Intel";
+	case 15:
+		return "Broadcom";
+	case 93:
+		return "Realtek";
+	}
+
+	return NULL;
+}
+
+static const char *current_vendor_evt_str(uint8_t evt)
+{
+	uint16_t manufacturer;
+
+	if (index_current < MAX_INDEX)
+		manufacturer = index_list[index_current].manufacturer;
+	else
+		manufacturer = fallback_manufacturer;
 
 	switch (manufacturer) {
 	case 2:
@@ -9356,7 +9392,7 @@ static const struct vendor_ocf *current_vendor_ocf(uint16_t ocf)
 
 	if (index_current < MAX_INDEX) {
 		manufacturer = index_list[index_current].manufacturer;
-		msft_opcode = index_list[index_current].msft_opcode;
+		msft_opcode = index_list[index_current].msft_ext.opcode;
 	} else {
 		manufacturer = fallback_manufacturer;
 		msft_opcode = BT_HCI_CMD_NOP;
@@ -9378,24 +9414,39 @@ static const struct vendor_ocf *current_vendor_ocf(uint16_t ocf)
 
 static const struct vendor_evt *current_vendor_evt(uint8_t evt)
 {
-	uint16_t manufacturer, msft_opcode;
+	uint16_t manufacturer;
 
-	if (index_current < MAX_INDEX) {
+	if (index_current < MAX_INDEX)
 		manufacturer = index_list[index_current].manufacturer;
-		msft_opcode = index_list[index_current].msft_opcode;
-	} else {
+	else
 		manufacturer = fallback_manufacturer;
-		msft_opcode = BT_HCI_CMD_NOP;
-	}
-
-	if (msft_opcode != BT_HCI_CMD_NOP)
-		return NULL;
 
 	switch (manufacturer) {
 	case 2:
 		return intel_vendor_evt(evt);
 	case 15:
 		return broadcom_vendor_evt(evt);
+	}
+
+	return NULL;
+}
+
+static const struct vendor_evt *current_vendor_msft_evt(const void *data,
+							uint8_t size)
+{
+	uint8_t *prefix, prefix_len;
+
+	if (index_current < MAX_INDEX) {
+		prefix_len = index_list[index_current].msft_ext.evt_prefix_len;
+		prefix = index_list[index_current].msft_ext.evt_prefix;
+	} else
+		return NULL;
+
+	/* MSFT extension events start with the MSFT event prefix which is
+	 * defined by the vendor and followed by the MSFT event code.
+	 */
+	if (size > prefix_len && !memcmp(data, prefix, prefix_len)) {
+		return msft_vendor_evt();
 	}
 
 	return NULL;
@@ -9573,7 +9624,7 @@ static void cmd_complete_evt(const void *data, uint8_t size)
 			const struct vendor_ocf *vnd = current_vendor_ocf(ocf);
 
 			if (vnd) {
-				const char *str = current_vendor_str();
+				const char *str = current_vendor_str(ocf);
 
 				if (str) {
 					snprintf(vendor_str, sizeof(vendor_str),
@@ -9665,7 +9716,7 @@ static void cmd_status_evt(const void *data, uint8_t size)
 			const struct vendor_ocf *vnd = current_vendor_ocf(ocf);
 
 			if (vnd) {
-				const char *str = current_vendor_str();
+				const char *str = current_vendor_str(ocf);
 
 				if (str) {
 					snprintf(vendor_str, sizeof(vendor_str),
@@ -11012,13 +11063,46 @@ static void le_meta_event_evt(const void *data, uint8_t size)
 
 static void vendor_evt(const void *data, uint8_t size)
 {
-	uint8_t subevent = *((const uint8_t *) data);
+	uint8_t subevent;
 	struct subevent_data vendor_data;
 	char vendor_str[150];
-	const struct vendor_evt *vnd = current_vendor_evt(subevent);
+	const struct vendor_evt *vnd;
 
+	/* For MSFT Extension event only */
+	vnd = current_vendor_msft_evt(data, size);
 	if (vnd) {
-		const char *str = current_vendor_str();
+		snprintf(vendor_str, sizeof(vendor_str),
+					"Microsoft %s", vnd->str);
+		print_indent(6, COLOR_HCI_EVENT, "", vendor_str, COLOR_OFF,
+					" length: %u", size);
+
+		if (!vnd->evt_func) {
+			packet_hexdump(data, size);
+			return;
+		}
+
+		if (vnd->evt_fixed) {
+			if (size != vnd->evt_size) {
+				print_text(COLOR_ERROR, "invalid packet size");
+				packet_hexdump(data, size);
+				return;
+			}
+		} else {
+			if (size < vnd->evt_size) {
+				print_text(COLOR_ERROR, "too short packet");
+				packet_hexdump(data, size);
+				return;
+			}
+		}
+
+		vnd->evt_func(data, size);
+		return;
+	}
+
+	subevent = *((const uint8_t *) data);
+	vnd = current_vendor_evt(subevent);
+	if (vnd) {
+		const char *str = current_vendor_evt_str(subevent);
 
 		if (str) {
 			snprintf(vendor_str, sizeof(vendor_str),
@@ -11419,7 +11503,7 @@ void packet_hci_command(struct timeval *tv, struct ucred *cred, uint16_t index,
 			const struct vendor_ocf *vnd = current_vendor_ocf(ocf);
 
 			if (vnd) {
-				const char *str = current_vendor_str();
+				const char *str = current_vendor_str(ocf);
 
 				if (str) {
 					snprintf(vendor_str, sizeof(vendor_str),
