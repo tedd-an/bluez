@@ -1,0 +1,152 @@
+.\" Manpage for btmon
+.TH btmon 1 "April 2021" BlueZ "Linux System Administration"
+
+.SH NAME
+btmon - Bluetooth monitor
+
+.SH SYNOPSIS
+.B btmon
+.RI [ OPTIONS ]
+.SH DESCRIPTION
+The btmon(1) command provides access to the Bluetooth subsystem monitor
+infrastructure for reading HCI traces.
+.SH OPTIONS
+.TP
+.BR \-r , " \-\-read " \fIFILE\fR
+Read traces in btsnoop format.
+
+.TP
+.BR \-w , " \-\-write " \fIFILE\fR
+Save traces in btsnoop format.
+
+.TP
+.BR \-a , " \-\-analyze " \fIFILE\fR
+Analyze traces in btsnoop format. It displays the devices found in the
+\fIFILE\fR with its packets by type.
+
+.TP
+.BR \-s , " \-\-server " \fISOCKET\fR
+Start monitor server socket.
+
+.TP
+.BR \-p , " \-\-priority " \fIPRIORITY\fR
+Show only priority or lower for user log.
+.sp
+\fIPRIORITY\fR
+.IP
+.TS
+tab(:);
+l l.
+3:Error
+4:Warning
+6:Information (default)
+7:Debug. 'debug' can be to use.
+.TE
+
+.TP
+.BR \-i , " \-\-index " \fINUM\fR
+Show only specified controller. \fBhci\fINUM\fR is also acceptable.
+This is useful to capture the traces from the specific controller when the
+multiple controllers are presented.
+
+.TP
+.BR \-d , " \-\-tty " \fITTY\fR
+Read data from TTY.
+
+.TP
+.BR \-B , " \-\-rate " \fISPEED\fR
+Set TTY speed. The default \fISPEED\fR is 115300q
+
+.TP
+.BR \-V , " \-\-vendor " \fICOMPID\fR
+Set the default company identifier. The \fICOMPID\fR is a unique number
+assigned by the Bluetooth SIG to a member company and can be found/searched
+from the Bluetooth SIG webpage. For example, Intel is 2 and Realtek is 93.
+
+.TP
+.BR \-M ", " \-\-mgmt
+Open channel for mgmt events.
+
+.TP
+.BR \-t ", " \-\-time
+Show a time instead of time offset.
+
+.TP
+.BR \-T ", " \-\-date
+Show a time and date information instead of time offset.
+
+.TP
+.BR \-S ", " \-\-sco
+Dump SCO traffic in raw hex format.
+
+.TP
+.BR \-A ", " \-\-a2dp
+Dump A2DP stream traffic in a raw hex format.
+
+.TP
+.BR \-E , " \-\-ellisys " \fIIP\fR
+Send Ellisys HCI Injection.
+
+.TP
+.BR \-P ", " \-\-no\-pager
+Disable pager usage while reading the log file.
+
+.TP
+.BR \-J , " \-\-jlink " \fIDEVICE\fR,[\fISERIALNO\fR],[\fIINTERFACE\fR],[\fISPEED\fR]
+Read data from RTT
+
+.TP
+.BR \-R , " \-\-rtt " [\fIADDRESS\fR],[\fIAREA\fR],[\fINAME\fR]
+RTT control block parameters
+
+.TP
+.BR \-C , " \-\-columns " \fIWIDTH\fR
+Output width if not a terminal
+
+.TP
+.BR \-c , " \-\-color " \fIMODE\fR
+Set output color. The possible \fImode\fR values are:
+.sp
+\fIMODE\fR
+.IP
+.TS
+l.
+auto
+always
+never
+.TE
+
+.TP
+.BR \-v , " \-\-version
+Show version
+
+.TP
+.BR \-h , " \-\-help
+Show help options
+
+.SH EXAMPLES
+.TP
+.B Capture the traces from hci0 to hcidump.log file
+.IP
+$ btmon -i hci0 -w hcidump.log
+
+.TP
+.B Open the trace file
+.IP
+$ btmon -r hcidump.log
+
+.SH RESOURCES
+.TP
+<http://www.bluez.org/>
+
+.SH AUTHOR
+Written by Marcel Holtmann <marcel@holtmann.org>.
+.sp
+man page by Tedd Ho-Jeong An <tedd.an@intel.com>.
+
+.SH REPORTING BUGS
+linux-bluetooth@vger.kernel.org
+
+.SH COPYRIGHT
+Free use of this software is granted under ther terms of the GNU Lesser
+General Public Licenses (LGPL).
