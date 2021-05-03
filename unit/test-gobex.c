@@ -266,7 +266,8 @@ static void send_req(GObexPacket *req, GObexResponseFunc rsp_func,
 	g_main_loop_unref(mainloop);
 	mainloop = NULL;
 
-	g_source_remove(timer_id);
+	if (!g_error_matches(gerr, TEST_ERROR, TEST_ERROR_TIMEOUT))
+		g_source_remove(timer_id);
 	g_io_channel_unref(io);
 	g_obex_unref(obex);
 
@@ -450,7 +451,8 @@ static void test_cancel_req_delay(int transport_type)
 
 	g_assert_no_error(r.err);
 
-	g_source_remove(timer_id);
+	if (!g_error_matches(r.err, TEST_ERROR, TEST_ERROR_TIMEOUT))
+		g_source_remove(timer_id);
 	g_io_channel_unref(io);
 	g_source_remove(io_id);
 	g_obex_unref(r.obex);
@@ -551,7 +553,8 @@ static void test_send_connect(int transport_type)
 	g_main_loop_unref(mainloop);
 	mainloop = NULL;
 
-	g_source_remove(timer_id);
+	if (!g_error_matches(r.err, TEST_ERROR, TEST_ERROR_TIMEOUT))
+		g_source_remove(timer_id);
 	g_io_channel_unref(io);
 	if (!r.completed)
 		g_source_remove(io_id);
@@ -612,7 +615,8 @@ static void test_recv_unexpected(void)
 	g_main_loop_unref(mainloop);
 	mainloop = NULL;
 
-	g_source_remove(timer_id);
+	if (!g_error_matches(err, TEST_ERROR, TEST_ERROR_TIMEOUT))
+		g_source_remove(timer_id);
 	g_io_channel_unref(io);
 	g_obex_unref(obex);
 
@@ -667,7 +671,8 @@ static void test_send_on_demand(int transport_type, GObexDataProducer func)
 	g_main_loop_unref(mainloop);
 	mainloop = NULL;
 
-	g_source_remove(timer_id);
+	if (!g_error_matches(r.err, TEST_ERROR, TEST_ERROR_TIMEOUT))
+		g_source_remove(timer_id);
 	g_io_channel_unref(io);
 	if (!r.completed)
 		g_source_remove(io_id);
@@ -748,7 +753,8 @@ static void recv_connect(int transport_type)
 
 	g_main_loop_run(mainloop);
 
-	g_source_remove(timer_id);
+	if (!g_error_matches(gerr, TEST_ERROR, TEST_ERROR_TIMEOUT))
+		g_source_remove(timer_id);
 	g_obex_unref(obex);
 	g_io_channel_unref(io);
 
@@ -800,7 +806,8 @@ static void test_disconnect(void)
 
 	g_assert_no_error(gerr);
 
-	g_source_remove(timer_id);
+	if (!g_error_matches(gerr, TEST_ERROR, TEST_ERROR_TIMEOUT))
+		g_source_remove(timer_id);
 	g_io_channel_unref(io);
 	g_obex_unref(obex);
 
