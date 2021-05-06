@@ -253,8 +253,8 @@ if LIBSHARED_ELL
 src_libshared_ell_la_SOURCES = $(shared_sources) \
 				src/shared/io-ell.c \
 				src/shared/timeout-ell.c \
-				src/shared/mainloop.h \
-				src/shared/mainloop-ell.c
+				src/shared/mainloop-ell.c \
+				src/shared/bttester.h src/shared/bttester.c
 endif
 
 attrib_sources = attrib/att.h attrib/att-database.h attrib/att.c \
