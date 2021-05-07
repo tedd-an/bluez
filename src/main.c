@@ -774,9 +774,10 @@ static void parse_config(GKeyFile *config)
 			DBG("Invalid mode option: %s", str);
 			btd_opts.avdtp.session_mode = BT_IO_MODE_BASIC;
 		}
+		g_free(str);
 	}
 
-	val = g_key_file_get_integer(config, "AVDTP", "StreamMode", &err);
+	str = g_key_file_get_string(config, "AVDTP", "StreamMode", &err);
 	if (err) {
 		DBG("%s", err->message);
 		g_clear_error(&err);
@@ -791,6 +792,7 @@ static void parse_config(GKeyFile *config)
 			DBG("Invalid mode option: %s", str);
 			btd_opts.avdtp.stream_mode = BT_IO_MODE_BASIC;
 		}
+		g_free(str);
 	}
 
 	parse_br_config(config);
