@@ -1,0 +1,11 @@
+[Unit]
+Description=Bluetooth to MPRIS proxy
+
+[Service]
+Type=simple
+ExecStart=@bindir@/mpris-proxy
+NotifyAccess=main
+LimitNPROC=1
+
+[Install]
+WantedBy=bluetooth.target

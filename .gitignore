@@ -84,6 +84,7 @@ tools/nokfw
 tools/rtlfw
 tools/btiotest
 tools/mpris-proxy
+tools/mpris-proxy.service
 tools/bluetooth-player
 tools/l2cap-tester
 tools/sco-tester
