@@ -239,6 +239,7 @@ struct avrcp_player {
 	uint8_t *features;
 	char *path;
 	guint changed_id;
+	bool addressed_changing;
 
 	struct pending_list_items *p;
 	char *change_path;
@@ -792,7 +793,7 @@ void avrcp_player_event(struct avrcp_player *player, uint8_t id,
 
 	DBG("id=%u", id);
 
-	if (id != AVRCP_EVENT_ADDRESSED_PLAYER_CHANGED && player->changed_id) {
+	if (id != AVRCP_EVENT_ADDRESSED_PLAYER_CHANGED && player->addressed_changing) {
 		code = AVC_CTYPE_REJECTED;
 		size = 1;
 		pdu->params[0] = AVRCP_STATUS_ADDRESSED_PLAYER_CHANGED;
@@ -1794,6 +1795,8 @@ static gboolean notify_addressed_player_changed(gpointer user_data)
 				};
 	uint8_t i;
 
+	player->addressed_changing = true;
+
 	avrcp_player_event(player, AVRCP_EVENT_ADDRESSED_PLAYER_CHANGED, NULL);
 
 	/*
@@ -1804,6 +1807,7 @@ static gboolean notify_addressed_player_changed(gpointer user_data)
 	for (i = 0; i < sizeof(events); i++)
 		avrcp_player_event(player, events[i], NULL);
 
+	player->addressed_changing = false;
 	player->changed_id = 0;
 
 	return FALSE;
