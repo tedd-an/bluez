@@ -6882,6 +6882,22 @@ static void command_setup_hci_callback(uint16_t opcode, const void *param,
 	test_setup_condition_complete(data);
 }
 
+static void command_hci_plus_callback(uint16_t opcode, const void *param,
+					uint8_t length, void *user_data)
+{
+	tester_print("Post HCI Command 0x%04x length %u", opcode, length);
+}
+
+static gboolean hci_command_idle(void *user_data)
+{
+	struct test_data *data = user_data;
+
+	hciemu_clear_master_post_command_hooks(data->hciemu);
+	hciemu_add_master_post_command_hook(data->hciemu,
+					command_hci_plus_callback, data);
+	return FALSE;
+}
+
 static void command_hci_callback(uint16_t opcode, const void *param,
 					uint8_t length, void *user_data)
 {
@@ -6895,6 +6911,8 @@ static void command_hci_callback(uint16_t opcode, const void *param,
 
 	if (opcode != test->expect_hci_command || data->unmet_conditions <= 0)
 		return;
+
+	g_idle_add(hci_command_idle, data);
 
 	if (test->expect_hci_func)
 		expect_hci_param = test->expect_hci_func(&expect_hci_len);
