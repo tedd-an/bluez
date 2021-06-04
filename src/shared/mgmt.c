@@ -235,8 +235,10 @@ static bool match_request_opcode_index(const void *a, const void *b)
 	const struct mgmt_request *request = a;
 	const struct opcode_index *match = b;
 
-	return request->opcode == match->opcode &&
-					request->index == match->index;
+	if (match->opcode && request->opcode != match->opcode)
+		return false;
+
+	return request->index == match->index;
 }
 
 static void request_complete(struct mgmt *mgmt, uint8_t status,
@@ -248,6 +250,18 @@ static void request_complete(struct mgmt *mgmt, uint8_t status,
 
 	request = queue_remove_if(mgmt->pending_list,
 					match_request_opcode_index, &match);
+	if (!request) {
+		util_debug(mgmt->debug_callback, mgmt->debug_data,
+				"Unable to find request for opcode 0x%02x",
+				opcode);
+
+		/* Attempt to remove with no opcode */
+		match.opcode = 0x0000;
+		request = queue_remove_if(mgmt->pending_list,
+						match_request_opcode_index,
+						&match);
+	}
+
 	if (request) {
 		if (request->callback)
 			request->callback(status, length, param,
