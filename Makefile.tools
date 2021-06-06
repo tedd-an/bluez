@@ -168,7 +168,7 @@ tools_sco_tester_LDADD = lib/libbluetooth-internal.la \
 				src/libshared-ell.la $(ell_ldadd)
 
 tools_hci_tester_SOURCES = tools/hci-tester.c monitor/bt.h
-tools_hci_tester_LDADD = src/libshared-glib.la $(GLIB_LIBS)
+tools_hci_tester_LDADD = src/libshared-ell.la $(ell_ldadd)
 
 tools_userchan_tester_SOURCES = tools/userchan-tester.c monitor/bt.h \
 				emulator/hciemu.h emulator/hciemu-ell.c \
