@@ -2447,6 +2447,7 @@ static void acquire_write_reply(DBusMessage *message, void *user_data)
 {
 	struct pending_op *op = user_data;
 	struct external_chrc *chrc;
+	struct queue *resend;
 	DBusError err;
 	int fd;
 	uint16_t mtu;
@@ -2488,18 +2489,35 @@ static void acquire_write_reply(DBusMessage *message, void *user_data)
 
 	chrc->write_io = sock_io_new(fd, chrc);
 
-	if (sock_io_send(chrc->write_io, op->data.iov_base,
-				op->data.iov_len) < 0)
-		goto retry;
+	while ((op = queue_peek_head(chrc->pending_writes)) != NULL) {
+		if (sock_io_send(chrc->write_io, op->data.iov_base,
+					op->data.iov_len) < 0)
+			goto retry;
 
-	gatt_db_attribute_write_result(op->attrib, op->id, 0);
+		gatt_db_attribute_write_result(op->attrib, op->id, 0);
+		pending_op_free(op);
+	}
 
 	return;
 
 retry:
-	send_write(op->device, op->attrib, chrc->proxy, NULL, op->id,
-				op->data.iov_base, op->data.iov_len, 0,
-				op->link_type, false, false);
+	/*
+	 * send_write pushes to chrc->pending_writes, so we need a
+	 * temporary queue to avoid an infinite loop.
+	 */
+	resend = queue_new();
+
+	while ((op = queue_pop_head(chrc->pending_writes)) != NULL)
+		queue_push_tail(resend, op);
+
+	while ((op = queue_pop_head(resend)) != NULL) {
+		send_write(op->device, op->attrib, chrc->proxy, NULL, op->id,
+					op->data.iov_base, op->data.iov_len, 0,
+					op->link_type, false, false);
+		pending_op_free(op);
+	}
+
+	queue_destroy(resend, NULL);
 }
 
 static void acquire_write_setup(DBusMessageIter *iter, void *user_data)
@@ -2527,14 +2545,18 @@ static struct pending_op *acquire_write(struct external_chrc *chrc,
 					uint8_t link_type)
 {
 	struct pending_op *op;
+	bool acquiring = !queue_isempty(chrc->pending_writes);
 
 	op = pending_write_new(device, chrc->pending_writes, attrib, id, value,
 				len, 0, link_type, false, false);
 
+	if (acquiring)
+		return op;
+
 	if (g_dbus_proxy_method_call(chrc->proxy, "AcquireWrite",
 					acquire_write_setup,
 					acquire_write_reply,
-					op, pending_op_free))
+					op, NULL))
 		return op;
 
 	pending_op_free(op);
