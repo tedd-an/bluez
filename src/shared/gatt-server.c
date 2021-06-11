@@ -1700,8 +1700,18 @@ bool bt_gatt_server_send_notification(struct bt_gatt_server *server,
 	if (!server || (length && !value))
 		return false;
 
-	if (multiple)
+	if (multiple) {
 		data = server->nfy_mult;
+
+		/* flush buffered data if this request hits buffer size limit */
+		if (data && data->offset > 0 &&
+				data->len - data->offset < 4 + length) {
+			if (server->nfy_mult->id)
+				timeout_remove(server->nfy_mult->id);
+			notify_multiple(server);
+			data = NULL;
+		}
+	}
 
 	if (!data) {
 		data = new0(struct nfy_mult_data, 1);
@@ -1709,11 +1719,16 @@ bool bt_gatt_server_send_notification(struct bt_gatt_server *server,
 		data->pdu = malloc(data->len);
 	}
 
+	if (multiple) {
+		if (data->len - data->offset < 4 + length)
+			return false;
+	} else {
+		if (data->len - data->offset < 2 + length)
+			return false;
+	}
+
 	put_le16(handle, data->pdu + data->offset);
 	data->offset += 2;
-
-	length = MIN(data->len - data->offset, length);
-
 	if (multiple) {
 		put_le16(length, data->pdu + data->offset);
 		data->offset += 2;
