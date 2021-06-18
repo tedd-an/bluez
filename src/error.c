@@ -14,6 +14,7 @@
 #include <config.h>
 #endif
 
+#include <stdio.h>
 #include "gdbus/gdbus.h"
 
 #include "error.h"
@@ -26,6 +27,15 @@ DBusMessage *btd_error_invalid_args(DBusMessage *msg)
 
 DBusMessage *btd_error_invalid_args_str(DBusMessage *msg, const char *str)
 {
+	return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidArguments",
+					"%s", str);
+}
+
+DBusMessage *btd_error_invalid_args_err(DBusMessage *msg, uint16_t err)
+{
+	char str[16];
+
+	sprintf(str, "BtdError:0x%04X", err);
 	return g_dbus_create_error(msg, ERROR_INTERFACE ".InvalidArguments",
 					"%s", str);
 }
@@ -66,10 +76,28 @@ DBusMessage *btd_error_in_progress(DBusMessage *msg)
 					"In Progress");
 }
 
+DBusMessage *btd_error_in_progress_err(DBusMessage *msg, uint16_t err)
+{
+	char str[16];
+
+	sprintf(str, "BtdError:0x%04X", err);
+	return g_dbus_create_error(msg, ERROR_INTERFACE ".InProgress", "%s",
+					str);
+}
+
 DBusMessage *btd_error_not_available(DBusMessage *msg)
 {
 	return g_dbus_create_error(msg, ERROR_INTERFACE ".NotAvailable",
 					"Operation currently not available");
+}
+
+DBusMessage *btd_error_not_available_err(DBusMessage *msg, uint16_t err)
+{
+	char str[16];
+
+	sprintf(str, "BtdError:0x%04X", err);
+	return g_dbus_create_error(msg, ERROR_INTERFACE ".NotAvailable", "%s",
+					str);
 }
 
 DBusMessage *btd_error_does_not_exist(DBusMessage *msg)
@@ -108,8 +136,104 @@ DBusMessage *btd_error_not_ready(DBusMessage *msg)
 					"Resource Not Ready");
 }
 
+DBusMessage *btd_error_not_ready_err(DBusMessage *msg, uint16_t err)
+{
+	char str[16];
+
+	sprintf(str, "BtdError:0x%04X", err);
+	return g_dbus_create_error(msg, ERROR_INTERFACE ".NotReady", "%s", str);
+}
+
 DBusMessage *btd_error_failed(DBusMessage *msg, const char *str)
 {
 	return g_dbus_create_error(msg, ERROR_INTERFACE
 					".Failed", "%s", str);
+}
+
+DBusMessage *btd_error_failed_err(DBusMessage *msg, uint16_t err)
+{
+	char str[16];
+
+	sprintf(str, "BtdError:0x%04X", err);
+	return g_dbus_create_error(msg, ERROR_INTERFACE ".Failed", "%s", str);
+}
+
+uint16_t btd_error_bredr_conn_from_errno(int errno_code)
+{
+	switch (-errno_code) {
+	case EALREADY:
+	case EISCONN: // Fall through
+		return BTD_ERR_BREDR_CONN_ALREADY_CONNECTED;
+	case EHOSTDOWN:
+		return BTD_ERR_BREDR_CONN_PAGE_TIMEOUT;
+	case ENOPROTOOPT:
+		return BTD_ERR_BREDR_CONN_PROFILE_UNAVAILABLE;
+	case EIO:
+		return BTD_ERR_BREDR_CONN_CREATE_SOCKET;
+	case EINVAL:
+		return BTD_ERR_BREDR_CONN_INVALID_ARGUMENTS;
+	case EHOSTUNREACH:
+		return BTD_ERR_BREDR_CONN_ADAPTER_NOT_POWERED;
+	case EOPNOTSUPP:
+	case EPROTONOSUPPORT: // Fall through
+		return BTD_ERR_BREDR_CONN_NOT_SUPPORTED;
+	case EBADFD:
+		return BTD_ERR_BREDR_CONN_BAD_SOCKET;
+	case ENOMEM:
+		return BTD_ERR_BREDR_CONN_MEMORY_ALLOC;
+	case EBUSY:
+		return BTD_ERR_BREDR_CONN_BUSY;
+	case EMLINK:
+		return BTD_ERR_BREDR_CONN_SYNC_CONNECT_LIMIT;
+	case ETIMEDOUT:
+		return BTD_ERR_BREDR_CONN_TIMEOUT;
+	case ECONNREFUSED:
+		return BTD_ERR_BREDR_CONN_REFUSED;
+	case ECONNRESET:
+		return BTD_ERR_BREDR_CONN_TERM_BY_REMOTE;
+	case ECONNABORTED:
+		return BTD_ERR_BREDR_CONN_TERM_BY_LOCAL;
+	case EPROTO:
+		return BTD_ERR_BREDR_CONN_PROTO_ERROR;
+	default:
+		return BTD_ERR_BREDR_CONN_UNKNOWN;
+	}
+}
+
+uint16_t btd_error_le_conn_from_errno(int errno_code)
+{
+	switch (-errno_code) {
+	case EINVAL:
+		return BTD_ERR_LE_CONN_INVALID_ARGUMENTS;
+	case EHOSTUNREACH:
+		return BTD_ERR_LE_CONN_ADAPTER_NOT_POWERED;
+	case EOPNOTSUPP:
+	case EPROTONOSUPPORT: // Fall through
+		return BTD_ERR_LE_CONN_NOT_SUPPORTED;
+	case EALREADY:
+	case EISCONN: // Fall through
+		return BTD_ERR_LE_CONN_ALREADY_CONNECTED;
+	case EBADFD:
+		return BTD_ERR_LE_CONN_BAD_SOCKET;
+	case ENOMEM:
+		return BTD_ERR_LE_CONN_MEMORY_ALLOC;
+	case EBUSY:
+		return BTD_ERR_LE_CONN_BUSY;
+	case ECONNREFUSED:
+		return BTD_ERR_LE_CONN_REFUSED;
+	case EIO:
+		return BTD_ERR_LE_CONN_CREATE_SOCKET;
+	case ETIMEDOUT:
+		return BTD_ERR_LE_CONN_TIMEOUT;
+	case EMLINK:
+		return BTD_ERR_LE_CONN_SYNC_CONNECT_LIMIT;
+	case ECONNRESET:
+		return BTD_ERR_LE_CONN_TERM_BY_REMOTE;
+	case ECONNABORTED:
+		return BTD_ERR_LE_CONN_TERM_BY_LOCAL;
+	case EPROTO:
+		return BTD_ERR_LE_CONN_PROTO_ERROR;
+	default:
+		return BTD_ERR_LE_CONN_UNKNOWN;
+	}
 }
