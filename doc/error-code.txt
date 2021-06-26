@@ -1,0 +1,266 @@
+D-Bus Method Return Error Codes
+===============================
+
+The motivation of having detailed error codes is to provide context-based
+failure reasons along with D-Bus method return so that D-Bus clients can
+build metrics and optimize their application based on these failure reasons.
+For instance, a client can build retry mechanism for a connection failure or
+improve the bottleneck of use scenario based on actionable metrics.
+
+These error codes are context-based but not necessarily tied to interface or
+method calls. For instance, if a pairing request failed due to connection
+failure, connection error would be attached to the method return of Pair().
+
+BR/EDR connection already connected
+===================================
+	code:	0x0001
+	errno:	EALREADY, EISCONN
+
+Either the profile is already connected or ACL connection is in place.
+
+BR/EDR connection page timeout
+==============================
+	code:	0x0002
+	errno:	EHOSTDOWN
+
+Failed due to page timeout.
+
+BR/EDR connection profile unavailable 
+=====================================
+	code:	0x0003
+	errno:	ENOPROTOOPT
+
+Failed to find connectable services or the target service.
+
+BR/EDR connection SDP search
+============================
+	code:	0x0004
+	errno:	none
+
+Failed to complete the SDP search.
+
+BR/EDR connection create socket
+===============================
+	code:	0x0005
+	errno:	EIO
+
+Failed to create or connect to BT IO socket. This can also indicate hardware
+failure in the controller.
+
+BR/EDR connection invalid arguments
+===================================
+	code:	0x0006
+	errno:	EHOSTUNREACH
+
+Failed due to invalid arguments.
+
+BR/EDR connection not powered
+=============================
+	code:	0x0007
+	errno:	EHOSTUNREACH
+
+Failed due to adapter not powered.
+
+BR/EDR connection not supported
+===============================
+	code:	0x0008
+	errno:	EOPNOTSUPP, EPROTONOSUPPORT
+
+Failed due to unsupported state transition of L2CAP channel or other features
+either by the local host or the remote.
+
+BR/EDR connection bad socket
+============================
+	code:	0x0009
+	errno:	EBADFD
+
+Failed due to the socket is in bad state.
+
+BR/EDR connection memory allocation
+===================================
+	code:	0x000A
+	errno:	EBADFD
+
+Failed to allocate memory in either host stack or controller.
+
+BR/EDR connection busy
+======================
+	code:	0x000B
+	errno:	EBUSY
+
+Failed due to other ongoing operations, such as pairing, busy L2CAP channel or
+the operation disallowed by the controller.
+
+BR/EDR connection concurrent connection limit
+=============================================
+	code:	0x000C
+	errno:	EMLINK
+
+Failed due to reaching the concurrent connection limit to a device.
+
+BR/EDR connection timeout
+=========================
+	code:	0x000D
+	errno:	ETIMEDOUT
+
+Failed due to connection timeout
+
+BR/EDR connection refused
+=========================
+	code:	0x000E
+	errno:	ECONNREFUSED
+
+Refused by the remote device due to limited resource, security reason or
+unacceptable address type.
+
+BR/EDR connection aborted by remote
+===================================
+	code:	0x000F
+	errno:	ECONNRESET
+
+Terminated by the remote device due to limited resource or power off.
+
+BR/EDR connection aborted by local
+==================================
+	code:	0x0010
+	errno:	ECONNABORTED
+
+Aborted by the local host.
+
+BR/EDR connection protocol error
+================================
+	code:	0x0011
+	errno:	EPROTO
+
+Failed due to LMP protocol error.
+
+BR/EDR connection canceled
+==========================
+	code:	0x0012
+	errno:	none
+
+Failed due to cancellation caused by adapter drop, unexpected device drop, or
+incoming disconnection request before connection request is completed.
+
+BR/EDR connection unknown error
+===============================
+	code:	0x0013
+	errno:	ENOSYS
+
+Failed due to unknown reason.
+
+LE connection invalid arguments
+===============================
+	code:	0x0101
+	errno:	EINVAL
+
+Failed due to invalid arguments.
+
+LE connection not powered
+=========================
+	code:	0x0102
+	errno:	EHOSTUNREACH
+
+Failed due to adapter not powered.
+
+LE connection not supported
+===========================
+	code:	0x0103
+	errno:	EOPNOTSUPP, EPROTONOSUPPORT
+
+Failed due to unsupported state transition of L2CAP channel or other features
+(e.g. LE features) either by the local host or the remote.
+
+LE connection already connected
+===============================
+	code:	0x0104
+	errno: EALREADY, EISCONN
+
+Either the BT IO is already connected or LE link connection in place.
+
+LE connection bad socket
+========================
+	code:	0x0105
+	errno: EBADFD
+
+Failed due to the socket is in bad state.
+
+LE connection memory allocation
+===============================
+	code:	0x0106
+	errno: ENOMEM
+
+Failed to allocate memory in either host stack or controller.
+
+LE connection busy
+==================
+	code:	0x0107
+	errno:	EBUSY
+
+Failed due to other ongoing operations, such as pairing, connecting, busy
+L2CAP channel or the operation disallowed by the controller.
+
+LE connection refused
+=====================
+	code:	0x0108
+	errno:	ECONNREFUSED
+
+Failed due to that LE is not enabled or the attempt is refused by the remote
+device due to limited resource, security reason or unacceptable address type.
+
+LE connection create socket
+===========================
+	code:	0x0109
+	errno:	EIO
+
+Failed to create or connect to BT IO socket. This can also indicate hardware
+failure in the controller.
+
+LE connection timeout
+=====================
+	code:	0x010A
+	errno:	ETIMEDOUT
+
+Failed due to connection timeout
+
+LE connection concurrent connection limit
+=========================================
+	code:	0x010B
+	errno:	EMLINK
+
+Failed due to reaching the synchronous connection limit to a device.
+
+LE connection abort by remote
+=============================
+	code:	0x010C
+	errno:	ECONNRESET
+
+Aborted by the remote device due to limited resource or power off.
+
+LE connection abort by local
+============================
+	code:	0x010D
+	errno:	ECONNABORTED
+
+Aborted by the local host.
+
+LE connection link layer protocol error 
+=======================================
+	code:	0x010E
+	errno:	EPROTO
+
+Failed due to link layer protocol error.
+
+LE connection GATT browsing
+===========================
+	code:	0x010F
+	errno:	none
+
+Failed to complete the GATT browsing.
+
+LE connection unknown error
+===========================
+	code:	0x0110
+	errno:	ENOSYS
+
+ Failed due to unknown reason.
