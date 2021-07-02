@@ -334,7 +334,7 @@ static const GDBusMethodTable dummy_methods[] = {
 	{ GDBUS_EXPERIMENTAL_METHOD("DisconnectImmediate", NULL, NULL,
 				disconnect_immediate) },
 	{ GDBUS_EXPERIMENTAL_METHOD("CardStatus",
-				GDBUS_ARGS({ "status", "" }), NULL,
+				GDBUS_ARGS({ "status", "u" }), NULL,
 				card_status) },
 	{ }
 };
