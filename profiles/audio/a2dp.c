@@ -3275,6 +3275,7 @@ static int a2dp_source_server_probe(struct btd_profile *p,
 {
 	struct a2dp_server *server;
 
+	media_register(adapter);
 	DBG("path %s", adapter_get_path(adapter));
 
 	server = find_server(servers, adapter);
@@ -3315,6 +3316,7 @@ static void a2dp_source_server_remove(struct btd_profile *p,
 		return;
 
 	a2dp_server_unregister(server);
+	media_unregister(adapter);
 }
 
 static int a2dp_sink_server_probe(struct btd_profile *p,

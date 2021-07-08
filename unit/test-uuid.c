@@ -169,6 +169,34 @@ static void test_cmp(gconstpointer data)
 	tester_test_passed();
 }
 
+static void test_hash(gconstpointer data)
+{
+	const struct uuid_test_data *test_data = data;
+	bt_uuid_t uuid1, uuid2;
+	guint uuid_h1, uuid_h2;
+
+	g_assert(bt_string_to_uuid(&uuid1, test_data->str) == 0);
+	g_assert(bt_string_to_uuid(&uuid2, test_data->str128) == 0);
+
+	uuid_h1 = bt_uuid_hash(&uuid1);
+	uuid_h2 = bt_uuid_hash(&uuid2);
+
+	g_assert(uuid_h1 == uuid_h2);
+	tester_test_passed();
+}
+
+static void test_equal(gconstpointer data)
+{
+	const struct uuid_test_data *test_data = data;
+	bt_uuid_t uuid1, uuid2;
+
+	g_assert(bt_string_to_uuid(&uuid1, test_data->str) == 0);
+	g_assert(bt_string_to_uuid(&uuid2, test_data->str128) == 0);
+
+	g_assert(bt_uuid_equal(&uuid1, &uuid2) == 1);
+	tester_test_passed();
+}
+
 static const struct uuid_test_data compress[] = {
 	{
 		.str = "00001234-0000-1000-8000-00805f9b34fb",
@@ -226,26 +254,46 @@ int main(int argc, char *argv[])
 	tester_add("/uuid/base", &uuid_base, NULL, test_uuid, NULL);
 	tester_add("/uuid/base/str", &uuid_base, NULL, test_str, NULL);
 	tester_add("/uuid/base/cmp", &uuid_base, NULL, test_cmp, NULL);
+	tester_add("/uuid/base/hash", &uuid_base, NULL, test_hash, NULL);
+	tester_add("/uuid/base/equal", &uuid_base, NULL, test_equal, NULL);
 
 	tester_add("/uuid/sixteen1", &uuid_sixteen1, NULL, test_uuid, NULL);
 	tester_add("/uuid/sixteen1/str", &uuid_sixteen1, NULL, test_str, NULL);
 	tester_add("/uuid/sixteen1/cmp", &uuid_sixteen1, NULL, test_cmp, NULL);
+	tester_add("/uuid/sixteen1/hash", &uuid_sixteen1, NULL, test_hash,
+									NULL);
+	tester_add("/uuid/sixteen1/equal", &uuid_sixteen1, NULL, test_equal,
+									NULL);
 
 	tester_add("/uuid/sixteen2", &uuid_sixteen2, NULL, test_uuid, NULL);
 	tester_add("/uuid/sixteen2/str", &uuid_sixteen2, NULL, test_str, NULL);
 	tester_add("/uuid/sixteen2/cmp", &uuid_sixteen2, NULL, test_cmp, NULL);
+	tester_add("/uuid/sixteen2/hash", &uuid_sixteen2, NULL, test_hash,
+									NULL);
+	tester_add("/uuid/sixteen2/equal", &uuid_sixteen2, NULL, test_equal,
+									NULL);
 
 	tester_add("/uuid/thirtytwo1", &uuid_32_1, NULL, test_uuid, NULL);
 	tester_add("/uuid/thirtytwo1/str", &uuid_32_1, NULL, test_str, NULL);
 	tester_add("/uuid/thirtytwo1/cmp", &uuid_32_1, NULL, test_cmp, NULL);
+	tester_add("/uuid/thirtytwo1/hash", &uuid_32_1, NULL, test_hash, NULL);
+	tester_add("/uuid/thirtytwo1/equal", &uuid_32_1, NULL, test_equal,
+									NULL);
 
 	tester_add("/uuid/thirtytwo2", &uuid_32_2, NULL, test_uuid, NULL);
 	tester_add("/uuid/thritytwo2/str", &uuid_32_2, NULL, test_str, NULL);
 	tester_add("/uuid/thirtytwo2/cmp", &uuid_32_2, NULL, test_cmp, NULL);
+	tester_add("/uuid/thirtytwo2/hash", &uuid_32_2, NULL, test_hash, NULL);
+	tester_add("/uuid/thirtytwo2/equal", &uuid_32_2, NULL, test_equal,
+									NULL);
 
 	tester_add("/uuid/onetwentyeight", &uuid_128, NULL, test_uuid, NULL);
 	tester_add("/uuid/onetwentyeight/str", &uuid_128, NULL, test_str, NULL);
 	tester_add("/uuid/onetwentyeight/cmp", &uuid_128, NULL, test_cmp, NULL);
+	tester_add("/uuid/onetwentyeight/hash", &uuid_128, NULL, test_hash,
+									NULL);
+	tester_add("/uuid/onetwentyeight/equal", &uuid_128, NULL, test_equal,
+									NULL);
 
 	for (i = 0; malformed[i]; i++) {
 		char *testpath;
