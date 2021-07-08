@@ -44,6 +44,7 @@ static struct btd_admin_policy {
 struct device_data {
 	struct btd_device *device;
 	char *path;
+	bool affected;
 };
 
 static struct btd_admin_policy *admin_policy_new(struct btd_adapter *adapter)
@@ -137,6 +138,27 @@ static bool service_allowlist_set(struct btd_admin_policy *admin_policy,
 	return true;
 }
 
+static void update_device_affected(void *data, void *user_data)
+{
+	struct device_data *dev_data = data;
+	bool affected;
+
+	if (!dev_data) {
+		error("Unexpected NULL device_data when updating device");
+		return;
+	}
+
+	affected = btd_device_all_services_allowed(dev_data->device);
+
+	if (affected == dev_data->affected)
+		return;
+
+	dev_data->affected = affected;
+
+	g_dbus_emit_property_changed(dbus_conn, dev_data->path,
+			ADMIN_POLICY_STATUS_INTERFACE, "AffectedByPolicy");
+}
+
 static DBusMessage *set_service_allowlist(DBusConnection *conn,
 					DBusMessage *msg, void *user_data)
 {
@@ -163,6 +185,8 @@ static DBusMessage *set_service_allowlist(DBusConnection *conn,
 	g_dbus_emit_property_changed(dbus_conn,
 				adapter_get_path(policy_data->adapter),
 				ADMIN_POLICY_SET_INTERFACE, "ServiceAllowList");
+
+	queue_foreach(devices, update_device_affected, NULL);
 
 	return dbus_message_new_method_return(msg);
 }
@@ -266,6 +290,29 @@ static bool device_data_match(const void *a, const void *b)
 	return data->device == dev;
 }
 
+static gboolean property_get_affected_by_policy(
+					const GDBusPropertyTable *property,
+					DBusMessageIter *iter, void *user_data)
+{
+	struct device_data *data = user_data;
+	dbus_bool_t affected;
+
+	if (!data) {
+		error("Unexpected error: device_data is NULL");
+		return FALSE;
+	}
+
+	dbus_message_iter_append_basic(iter, DBUS_TYPE_BOOLEAN,
+							&data->affected);
+
+	return TRUE;
+}
+
+static const GDBusPropertyTable admin_policy_device_properties[] = {
+	{ "AffectedByPolicy", "b", property_get_affected_by_policy },
+	{ }
+};
+
 static void free_device_data(struct device_data *data)
 {
 	g_free(data->path);
@@ -299,9 +346,31 @@ static void add_device_data(struct btd_device *device)
 
 	data->device = device;
 	data->path = g_strdup(device_get_path(device));
+	data->affected = btd_device_all_services_allowed(data->device);
+
+	if (!g_dbus_register_interface(dbus_conn, data->path,
+					ADMIN_POLICY_STATUS_INTERFACE,
+					NULL, NULL,
+					admin_policy_device_properties,
+					data, remove_device_data)) {
+		btd_error(btd_adapter_get_index(adapter),
+			"Admin Policy Status interface init failed on path %s",
+						device_get_path(device));
+		free_device_data(data);
+		return;
+	}
+
 	queue_push_tail(devices, data);
 
 	DBG("device_data for %s added", data->path);
+}
+
+static void unregister_device_data(void *data, void *user_data)
+{
+	struct device_data *dev_data = data;
+
+	g_dbus_unregister_interface(dbus_conn, dev_data->path,
+						ADMIN_POLICY_STATUS_INTERFACE);
 }
 
 static void admin_policy_device_state_cb(struct btd_device *device,
@@ -321,7 +390,7 @@ static void admin_policy_device_state_cb(struct btd_device *device,
 		data = queue_find(devices, device_data_match, device);
 
 		if (data)
-			remove_device_data(data);
+			unregister_device_data(data, NULL);
 		break;
 	}
 }
@@ -342,6 +411,9 @@ static int admin_policy_init(void)
 	device_cb_id = btd_device_add_state_cb(admin_policy_device_state_cb,
 									NULL);
 
+	device_cb_id = btd_device_add_state_cb(admin_policy_device_state_cb,
+									NULL);
+
 	return btd_register_adapter_driver(&admin_policy_driver);
 }
 
@@ -350,9 +422,11 @@ static void admin_policy_exit(void)
 	DBG("");
 
 	btd_unregister_adapter_driver(&admin_policy_driver);
-	queue_destroy(devices, free_device_data);
+	queue_foreach(devices, unregister_device_data, NULL);
+	queue_destroy(devices, g_free);
 	btd_device_remove_state_cb(device_cb_id);
 
+	btd_device_remove_state_cb(device_cb_id);
 	if (policy_data)
 		admin_policy_free(policy_data);
 }
