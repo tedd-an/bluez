@@ -11,7 +11,17 @@
 
 #define DEVICE_INTERFACE	"org.bluez.Device1"
 
+enum btd_device_state_t {
+	BTD_DEVICE_STATE_INITIALIZING,	/* Device object is creating */
+	BTD_DEVICE_STATE_AVAILABLE,	/* Device object is registered */
+	BTD_DEVICE_STATE_REMOVING,	/* Device object is being removed */
+};
+
 struct btd_device;
+
+typedef void (*btd_device_state_cb) (struct btd_device *device,
+					enum btd_device_state_t new_state,
+					void *user_data);
 
 struct btd_device *device_create(struct btd_adapter *adapter,
 				const bdaddr_t *address, uint8_t bdaddr_type);
@@ -179,3 +189,6 @@ bool btd_device_all_services_allowed(struct btd_device *dev);
 void btd_device_update_allowed_services(struct btd_device *dev);
 void btd_device_init(void);
 void btd_device_cleanup(void);
+
+unsigned int btd_device_add_state_cb(btd_device_state_cb cb, void *user_data);
+bool btd_device_remove_state_cb(unsigned int id);
