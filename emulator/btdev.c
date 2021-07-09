@@ -4519,6 +4519,20 @@ static bool ext_adv_timeout(void *user_data)
 	return false;
 }
 
+static struct btdev_rl *rl_find(struct btdev *dev, uint8_t type, uint8_t *addr)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(dev->le_rl); i++) {
+		struct btdev_rl *rl = &dev->le_rl[i];
+
+		if (RL_ADDR_EQUAL(rl, type, addr))
+			return rl;
+	}
+
+	return NULL;
+}
+
 static int cmd_set_ext_adv_enable(struct btdev *dev, const void *data,
 							uint8_t len)
 {
@@ -4555,6 +4569,37 @@ static int cmd_set_ext_adv_enable(struct btdev *dev, const void *data,
 		if (ext_adv->enable == cmd->enable) {
 			status = BT_HCI_ERR_COMMAND_DISALLOWED;
 			goto exit_complete;
+		}
+
+		if ((ext_adv->own_addr_type == 0x01 ||
+				ext_adv->own_addr_type == 0x03)) {
+			uint8_t none[6];
+
+			memset(none, 0, sizeof(none));
+
+			/* If the advertising set's Own_Address_Type parameter
+			 * is set to 0x01 (or 0x03) and the random address for
+			 * the advertising set has not been initialized, the
+			 * Controller shall return the error code Invalid HCI
+			 * Command Parameters (0x12).
+			 */
+			if (!memcmp(ext_adv->random_addr, none, sizeof(none))) {
+				status = BT_HCI_ERR_INVALID_PARAMETERS;
+				goto exit_complete;
+			}
+
+			/* If the advertising set's Own_Address_Type parameter
+			 * is set to 0x03, the controller's resolving list did
+			 * not contain a matching entry, the Controller shall
+			 * return the error code Invalid HCI Command
+			 * Parameters (0x12).
+			 */
+			if (ext_adv->own_addr_type == 0x03 &&
+					!rl_find(dev, ext_adv->direct_addr_type,
+							ext_adv->direct_addr)) {
+				status = BT_HCI_ERR_INVALID_PARAMETERS;
+				goto exit_complete;
+			}
 		}
 
 		ext_adv->enable = cmd->enable;
